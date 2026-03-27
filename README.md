@@ -2,94 +2,166 @@
 
 # agents-ui
 
-**A visual dashboard for managing your Claude Code agents, commands, skills, and workflows.**
+**Visualize, manage, and orchestrate your Claude Code ecosystem — all in one place.**
 
-Manage everything in your `.claude` directory — without touching the terminal.
+Stop editing scattered `.claude` files.  
+Start building agents, workflows, and tools visually.
 
-<!-- Replace with your hero GIF after recording -->
-![agents-ui demo](docs/images/hero.gif)
-
-[Quick Start](#quick-start) · [Features](#features) · [Contributing](CONTRIBUTING.md)
+[Quick Start](#quick-start) · [Features](#features) · [Why agents-ui?](#why-agents-ui) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
 ```bash
-git clone https://github.com/davidrodriguezpozo/agents-ui.git
-cd agents-ui
+git clone https://github.com/Ngxba/claude-code-agents-ui.git
+cd claude-code-agents-ui
 bun install
 bun run dev
 ```
 
-Open **http://localhost:3000** — that's it. agents-ui reads your `~/.claude` directory and you're ready to go.
+Open **http://localhost:3000** — agents-ui will automatically load your `~/.claude` setup.
 
-> **Prerequisites:** [Bun](https://bun.sh) (or Node.js 18+). If using Node, replace `bun` with `npm` or `pnpm`.
+> **Prerequisites:** [Bun](https://bun.sh) (recommended) or Node.js 18+
 
 ---
 
-## Features
+## ✨ Features
 
-### Agent Management
-Create, edit, and organize AI agents with custom instructions, models, and memory settings. Pick from templates or build from scratch.
+### 💬 ClaudeCode Chat UI
+Chat with your agents in a clean, real-time interface.
 
+- Automatically detects all Claude session folders dynamically  
+- Instant feedback loop for prompts  
+- Great for testing behaviors quickly  
+- No need to jump back to CLI  
+
+![Claude Code Chat](docs/images/chat-view.png)
+
+---
+
+### 🤖 Agent Management
+Design and manage agents without touching markdown.
+
+- Create, edit, and organize agents visually  
+- Configure models, instructions, and memory  
+- Use templates or build from scratch  
+
+![Agent View](docs/images/agent-main-view.png)
 ![Agent Editor](docs/images/agent-editor.png)
 
-### Command Builder
-Build reusable slash commands with argument hints and allowed-tools configuration. Organize in nested directories.
+---
 
-### Relationship Graph
-Interactive visualization of how your agents, commands, and skills connect. See the big picture at a glance.
+### ⚡ Command Builder
+Create reusable slash commands with structure and safety.
+
+- Argument hints for better UX  
+- Allowed-tools configuration  
+- Organized folder structure  
+
+---
+
+### 🔗 Relationship Graph
+See how everything connects — instantly.
+
+- Visual map of agents, commands, and skills  
+- Identify dependencies and gaps  
+- Understand your system at a glance  
 
 ![Relationship Graph](docs/images/graph.png)
 
-### Agent Studio
-Test your agents live — send messages, inspect execution, and refine instructions in real time.
+---
+
+### 🧪 Agent Studio
+Iterate faster with live testing.
+
+- Send messages and inspect execution  
+- Debug agent behavior in real time  
+- Refine prompts without context switching  
 
 ![Agent Studio](docs/images/studio.png)
 
-### Workflow Builder
-Chain agents into multi-step pipelines with a visual editor. Define execution order and inspect results.
+---
 
-<!-- ![Workflow Builder](docs/images/workflows.png) -->
+### 🔄 Workflow Builder
+Build multi-step AI pipelines visually.
 
-### Skill Management
-Browse, create, and import skills from GitHub. Teach your agents new capabilities.
+- Chain agents into workflows  
+- Control execution order  
+- Inspect intermediate results  
 
-### Explore & Templates
-Discover agent templates, browse extensions, and import community skills — all from one place.
+![Workflow Builder](docs/images/workflows-view.png)
+
+---
+
+### 🧠 Skill Management
+Extend your agents with reusable capabilities.
+
+- Import skills from GitHub  
+- Create and manage custom skills  
+- Keep everything centralized  
+
+---
+
+### 🌍 Explore & Templates
+Kickstart faster with community resources.
+
+- Discover agent templates  
+- Browse extensions  
+- Import and experiment instantly  
 
 ![Explore](docs/images/explore.png)
 
 ---
 
-## Why agents-ui?
+## 🚀 Why agents-ui?
 
-**If you already use Claude Code:** You manage agents by editing markdown files in `~/.claude/agents/`, commands in `~/.claude/commands/`, and skills scattered across directories. agents-ui gives you a visual layer on top — see everything at a glance, catch misconfigurations, and iterate faster.
+### If you're already using Claude Code
+Managing agents via scattered markdown files works… until it doesn’t.
 
-**If you're new to Claude Code:** The CLI can feel overwhelming. agents-ui gives you a GUI to get started — create your first agent from a template, see what each setting does, and build confidence before diving into the terminal.
+agents-ui gives you:
+- A **single visual control layer**
+- Faster iteration cycles
+- Better visibility into your system
 
 ---
 
-## Tech Stack
+### If you're new to Claude Code
+The CLI can feel overwhelming.
 
-- [Nuxt 3](https://nuxt.com) + [Vue 3](https://vuejs.org)
-- [Nuxt UI](https://ui.nuxt.com) + Tailwind CSS
-- [VueFlow](https://vueflow.dev) for graph visualization
-- [Bun](https://bun.sh) as package manager
+agents-ui helps you:
+- Learn visually instead of guessing configs  
+- Start with templates instead of blank files  
+- Build confidence before going deeper  
 
-## Environment Variables
+---
+
+## 🧱 Tech Stack
+
+- Nuxt 3 + Vue 3  
+- Nuxt UI + Tailwind CSS  
+- VueFlow (graph visualization)  
+- Bun  
+
+---
+
+## ⚙️ Environment Variables
 
 | Variable     | Description                          | Default     |
 | ------------ | ------------------------------------ | ----------- |
 | `CLAUDE_DIR` | Path to your Claude config directory | `~/.claude` |
 
-## Contributing
+---
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
+## 🤝 Contributing
 
-## License
+We welcome contributions!  
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines.
+
+---
+
+## 📄 License
 
 [MIT](LICENSE)

@@ -1,61 +1,81 @@
-# Contributing to agents-ui
+# Contributing to claude-code-agents-ui
 
-Thanks for your interest in contributing! Here's how to get started.
+Originally created by [@davidrodriguezpozo](https://github.com/davidrodriguezpozo).  
+This project is a fork of [agents-ui](https://github.com/davidrodriguezpozo/agents-ui).This project is now maintained and improved with contributions from the community.
 
-## Development Setup
+Thank you for your interest in contributing to **claude-code-agents-ui**! We’re excited to have you here. This guide will help you get up and running quickly.
 
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/davidrodriguezpozo/agents-ui.git
-   cd agents-ui
-   ```
+---
 
-2. Install dependencies:
+## 🚀 Development Setup
+
+1. **Clone the repository**
+```bash
+   git clone https://github.com/Ngxba/claude-code-agents-ui.git
+   cd claude-code-agents-ui
+```
+
+2. **Install dependencies**
+
    ```bash
    bun install
    ```
 
-3. Start the dev server:
+3. **Start the development server**
+
    ```bash
    bun run dev
    ```
 
-4. Open `http://localhost:3000`
+4. **Open the app**
 
-## Making Changes
+   ```
+   http://localhost:3000
+   ```
 
-1. Fork the repo and create a branch from `main`
-2. Make your changes
-3. Test locally with `bun run dev`
-4. Run type checking: `bun run typecheck`
-5. Submit a pull request
+---
 
-## What to Work On
+## 🛠️ Making Changes
 
-Check the [issues](https://github.com/davidrodriguezpozo/agents-ui/issues) for tasks labeled `good first issue`. If you have an idea for a new feature, open an issue first so we can discuss it.
+1. Fork the repository and create a new branch from `main`
+2. Implement your changes
+3. Test your changes locally:
 
-## Code Style
+   ```bash
+   bun run dev
+   ```
+4. Run type checks:
 
-- Vue 3 Composition API with `<script setup>`
-- TypeScript for all new code
-- Tailwind CSS for styling (using Nuxt UI components where possible)
-- Composables for shared state and API calls (`app/composables/`)
+   ```bash
+   bun run typecheck
+   ```
+5. Submit a pull request with a clear description of your changes
 
-## Project Structure
+---
 
-```
-app/
-├── components/     # Vue components
-├── composables/    # Shared state & API wrappers
-├── pages/          # Nuxt pages (file-based routing)
-├── types/          # TypeScript interfaces
-└── utils/          # Helpers (colors, templates)
+## 💡 What Can You Work On?
 
-server/
-├── api/            # REST endpoints
-└── utils/          # Server-side helpers
-```
+* Browse the [issues](https://github.com/Ngxba/claude-code-agents-ui/issues) and look for labels like `good first issue`
+* Have a new idea? Open an issue first so we can discuss it before implementation
 
-## Questions?
+---
 
-Open an issue or start a discussion. We're happy to help!
+## 🎨 Code Style Guidelines
+
+To keep the codebase consistent and maintainable:
+
+* Use **Vue 3 Composition API** with `<script setup>`
+* Write all new code in **TypeScript**
+* Use **Tailwind CSS** for styling (prefer **Nuxt UI components** when applicable)
+* Extract reusable logic into **composables** (`app/composables/`)
+
+---
+
+## ❓ Need Help?
+
+If you have any questions or need guidance:
+
+* Open an issue
+* Start a discussion
+
+We’re happy to support you—contributions of all sizes are welcome!
