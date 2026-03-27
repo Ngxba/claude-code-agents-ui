@@ -34,12 +34,9 @@ const {
 // Claude Code history
 const {
   messages: claudeCodeMessages,
-  selectedProject: selectedClaudeCodeProject,
-  selectedSession: selectedClaudeCodeSession,
   isLoadingMessages: isLoadingClaudeCodeMessages,
   messagesHasMore: claudeCodeMessagesHasMore,
   fetchMessages: fetchClaudeCodeMessages,
-  loadMoreMessages: loadMoreClaudeCodeMessages,
 } = useClaudeCodeHistory()
 
 // Session list
@@ -54,6 +51,9 @@ const isCreatingSession = ref(false)
 
 // View mode: 'live' (new chat) or 'history' (viewing Claude Code history)
 const viewMode = ref<'live' | 'history'>('live')
+
+// Local loading state with minimum duration for smooth UX
+const isLoadingHistoryWithDelay = ref(false)
 
 // URL state for history sessions
 const urlProjectName = ref<string | null>(null)
@@ -101,6 +101,9 @@ function handleClaudeCodeProjectSelected(payload: { projectName: string; project
   currentProjectDisplayName.value = payload.projectDisplayName
 }
 
+// Utility: delay for minimum loading time
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 // Handle Claude Code history session selection (no URL navigation)
 async function handleClaudeCodeSessionSelected(payload: { projectName: string; sessionId: string; sessionSummary: string; projectDisplayName: string }) {
   viewMode.value = 'history'
@@ -109,8 +112,24 @@ async function handleClaudeCodeSessionSelected(payload: { projectName: string; s
   currentSessionSummary.value = payload.sessionSummary
   currentProjectDisplayName.value = payload.projectDisplayName
 
-  // Load messages
-  await fetchClaudeCodeMessages(payload.projectName, payload.sessionId, 100, 0)
+  // Start loading with minimum duration
+  isLoadingHistoryWithDelay.value = true
+
+  // Load messages with minimum 500ms delay for smooth UX
+  await Promise.all([
+    fetchClaudeCodeMessages(payload.projectName, payload.sessionId, 100, 0),
+    delay(500)
+  ])
+
+  // End loading state
+  isLoadingHistoryWithDelay.value = false
+
+  // Scroll to bottom (latest messages) after loading
+  nextTick(() => {
+    if (messagesContainerRef.value) {
+      messagesContainerRef.value.scrollTop = messagesContainerRef.value.scrollHeight
+    }
+  })
 }
 
 // Handle selection cleared (back to projects list)
@@ -132,14 +151,67 @@ function handleNewChat() {
   createSession()
 }
 
-// Auto-scroll on new messages
+// Auto-scroll on new messages (only when not in history mode or near bottom)
 watch([displayMessages, streamingText], () => {
   nextTick(() => {
-    if (messagesContainerRef.value) {
+    if (messagesContainerRef.value && viewMode.value === 'live') {
       messagesContainerRef.value.scrollTop = messagesContainerRef.value.scrollHeight
     }
   })
 })
+
+// Track if we're loading more to prevent duplicate calls
+const isLoadingMore = ref(false)
+
+// Load more messages for history mode
+async function loadMoreHistoryMessages(options?: { preserveScroll?: boolean }) {
+  if (!claudeCodeMessagesHasMore.value) return
+  if (isLoadingClaudeCodeMessages.value || isLoadingMore.value) return
+  if (!urlProjectName.value || !urlSessionId.value) return
+
+  isLoadingMore.value = true
+
+  // Save current scroll state to restore position after loading
+  const container = messagesContainerRef.value
+  const scrollTop = container?.scrollTop ?? 0
+  const previousScrollHeight = container?.scrollHeight ?? 0
+
+  // Calculate offset for older messages
+  const currentMessageCount = claudeCodeMessages.value.length
+
+  try {
+    await fetchClaudeCodeMessages(
+      urlProjectName.value,
+      urlSessionId.value,
+      50,  // limit
+      currentMessageCount  // offset - skip messages we already have
+    )
+
+    if (options?.preserveScroll && container) {
+      nextTick(() => {
+        // Restore scroll position so user stays at same place
+        const newScrollHeight = container.scrollHeight
+        const scrollDiff = newScrollHeight - previousScrollHeight
+        container.scrollTop = scrollTop + scrollDiff
+      })
+    }
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+// Handle scroll to load more messages (for history mode)
+function handleMessagesScroll(event: Event) {
+  if (viewMode.value !== 'history') return
+
+  const container = event.target as HTMLElement
+  const scrollTop = container.scrollTop
+
+  // Load more when scrolled near the top (within 100px)
+  if (scrollTop < 100) {
+    loadMoreHistoryMessages({ preserveScroll: true })
+  }
+}
 
 // Fetch sessions list
 async function fetchSessions() {
@@ -348,12 +420,12 @@ function handleOpenFile(filePath: string) {
             {{ currentSessionId.slice(0, 8) }}
           </span>
 
-          <!-- Load more button for history -->
+          <!-- Load more button for history (fallback) -->
           <button
-            v-if="viewMode === 'history' && claudeCodeMessagesHasMore && !isLoadingClaudeCodeMessages"
+            v-if="viewMode === 'history' && claudeCodeMessagesHasMore && !isLoadingMore && !isLoadingClaudeCodeMessages"
             class="px-2 py-1 rounded text-[10px] font-medium hover-bg transition-all"
             style="background: var(--surface-raised); color: var(--text-secondary);"
-            @click="loadMoreClaudeCodeMessages"
+            @click="loadMoreHistoryMessages()"
           >
             Load older messages
           </button>
@@ -372,6 +444,7 @@ function handleOpenFile(filePath: string) {
         ref="messagesContainerRef"
         class="flex-1 overflow-y-auto p-4 space-y-4"
         style="background: var(--surface-base);"
+        @scroll="handleMessagesScroll"
       >
         <!-- Loading state for creating new session -->
         <div v-if="isCreatingSession" class="flex items-center justify-center h-full">
@@ -381,8 +454,8 @@ function handleOpenFile(filePath: string) {
           </div>
         </div>
 
-        <!-- Loading state for history (always show when loading, hide old messages) -->
-        <div v-else-if="viewMode === 'history' && isLoadingClaudeCodeMessages" class="flex items-center justify-center h-full">
+        <!-- Loading state for history (only show for initial load, not when loading more) -->
+        <div v-else-if="viewMode === 'history' && isLoadingHistoryWithDelay && !isLoadingMore" class="flex items-center justify-center h-full">
           <div class="text-center">
             <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--text-secondary);" />
             <p class="text-[13px]" style="color: var(--text-secondary);">Loading history...</p>
@@ -390,7 +463,7 @@ function handleOpenFile(filePath: string) {
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="displayMessages.length === 0 && !isStreaming && !isLoadingClaudeCodeMessages" class="flex items-center justify-center h-full">
+        <div v-else-if="displayMessages.length === 0 && !isStreaming && !isLoadingClaudeCodeMessages && !isLoadingHistoryWithDelay" class="flex items-center justify-center h-full">
           <div class="text-center max-w-md">
             <div class="size-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: var(--surface-raised);">
               <UIcon :name="viewMode === 'history' ? 'i-lucide-history' : 'i-lucide-message-circle'" class="size-8" style="color: var(--text-secondary);" />
@@ -405,13 +478,33 @@ function handleOpenFile(filePath: string) {
         </div>
 
         <!-- Message list -->
-        <ChatV2Messages
-          v-else
-          :messages="displayMessages"
-          :is-streaming="isStreaming"
-          @permission-respond="handlePermissionResponse"
-          @open-file="handleOpenFile"
-        />
+        <template v-else>
+          <!-- Loading more indicator at top -->
+          <div
+            v-if="viewMode === 'history' && isLoadingMore"
+            class="flex items-center justify-center py-4"
+          >
+            <UIcon name="i-lucide-loader-2" class="size-4 animate-spin mr-2" style="color: var(--text-secondary);" />
+            <span class="text-[12px]" style="color: var(--text-secondary);">Loading older messages...</span>
+          </div>
+
+          <!-- Scroll to top hint when more messages available -->
+          <div
+            v-else-if="viewMode === 'history' && claudeCodeMessagesHasMore && !isLoadingMore"
+            class="flex items-center justify-center py-2"
+          >
+            <span class="text-[11px]" style="color: var(--text-tertiary);">
+              ↑ Scroll up for older messages
+            </span>
+          </div>
+
+          <ChatV2Messages
+            :messages="displayMessages"
+            :is-streaming="isStreaming"
+            @permission-respond="handlePermissionResponse"
+            @open-file="handleOpenFile"
+          />
+        </template>
       </div>
 
       <!-- Input -->

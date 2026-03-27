@@ -230,10 +230,11 @@ function confirmDelete() {
 
         <!-- Projects -->
         <div
-          v-for="project in projects"
+          v-for="(project, index) in projects"
           :key="project.name"
-          class="px-3 py-2.5 rounded-lg cursor-pointer transition-all hover-bg group"
+          class="stagger-item px-3 py-2.5 rounded-lg cursor-pointer transition-all hover-bg group"
           style="background: var(--surface-raised);"
+          :style="{ animationDelay: `${index * 40}ms` }"
           @click="handleProjectClick(project)"
         >
           <div class="flex items-center gap-2 mb-0.5">
@@ -278,11 +279,16 @@ function confirmDelete() {
         class="flex-1 overflow-y-auto p-2 space-y-1"
         :class="{ 'pointer-events-none opacity-60': isLoadingMessages }"
       >
+        <!-- Loading state for sessions -->
+        <div v-if="isLoadingSessions && sessions.length === 0" class="flex items-center justify-center py-8">
+          <UIcon name="i-lucide-loader-2" class="size-5 animate-spin" style="color: var(--text-secondary);" />
+        </div>
+
         <!-- Sessions -->
         <div
-          v-for="session in sessions"
+          v-for="(session, index) in sessions"
           :key="session.id"
-          class="px-3 py-2.5 rounded-lg transition-all group/session"
+          class="stagger-item px-3 py-2.5 rounded-lg transition-all group/session"
           :class="isLoadingMessages ? 'cursor-not-allowed' : 'cursor-pointer hover-bg'"
           :style="{
             background: selectedSession?.id === session.id || currentSessionId === session.id
@@ -290,7 +296,8 @@ function confirmDelete() {
               : 'var(--surface-raised)',
             borderLeft: selectedSession?.id === session.id || currentSessionId === session.id
               ? '3px solid var(--accent)'
-              : '3px solid transparent'
+              : '3px solid transparent',
+            animationDelay: `${index * 40}ms`
           }"
           @click="handleSessionClick(session)"
         >
@@ -438,3 +445,22 @@ function confirmDelete() {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+/* Ensure animation replays when list items are added */
+.stagger-item {
+  opacity: 0;
+  animation: fadeInUp 0.35s ease forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>
