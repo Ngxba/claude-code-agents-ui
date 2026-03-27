@@ -61,35 +61,36 @@ onUnmounted(() => {
     <Transition name="dropdown">
       <div
         v-if="isOpen"
-        class="absolute top-full right-0 mt-1 w-56 rounded-lg shadow-lg overflow-hidden z-50"
-        style="background: var(--surface); border: 1px solid var(--border-subtle);"
+        class="absolute top-full right-0 mt-1 w-56 rounded-xl overflow-hidden z-50"
+        style="background: var(--surface-overlay); border: 1px solid var(--border-default); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-subtle);"
       >
         <div class="py-1">
           <button
             v-for="option in options"
             :key="option.value"
-            class="w-full px-3 py-2 text-left hover-bg transition-all"
+            class="w-full px-3 py-2.5 text-left transition-all"
             :style="{
-              background: option.value === modelValue ? 'var(--accent-light)' : 'transparent',
+              background: option.value === modelValue ? 'var(--accent-muted)' : 'transparent',
             }"
+            :class="option.value !== modelValue ? 'hover:bg-[var(--surface-hover)]' : ''"
             @click="selectOption(option.value)"
           >
             <div class="flex items-center gap-2">
               <UIcon
                 v-if="option.value === modelValue"
                 name="i-lucide-check"
-                class="size-3"
+                class="size-3.5"
                 style="color: var(--accent);"
               />
               <span
                 v-else
-                class="size-3"
+                class="size-3.5"
               />
               <span class="text-[12px] font-medium" style="color: var(--text-primary);">
                 {{ option.label }}
               </span>
             </div>
-            <div class="text-[10px] mt-0.5 ml-5" style="color: var(--text-tertiary);">
+            <div class="text-[10px] mt-0.5 ml-5.5" style="color: var(--text-secondary);">
               {{ option.description }}
             </div>
           </button>

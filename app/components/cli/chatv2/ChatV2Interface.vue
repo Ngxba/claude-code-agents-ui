@@ -12,6 +12,9 @@ const props = defineProps<{
   }
 }>()
 
+// Toast for notifications
+const toast = useToast()
+
 // No URL routing - all navigation handled via internal state
 
 // Chat v2 handler with integrated streaming, permissions, and session store
@@ -48,9 +51,13 @@ const inputText = ref('')
 const messagesContainerRef = ref<HTMLElement | null>(null)
 const sidebarCollapsed = ref(false)
 const isCreatingSession = ref(false)
+const isInputFocused = ref(false)
 
 // View mode: 'live' (new chat) or 'history' (viewing Claude Code history)
 const viewMode = ref<'live' | 'history'>('live')
+
+// Track if we're continuing a history session (showing history + new messages)
+const isContinuingHistory = ref(false)
 
 // Local loading state with minimum duration for smooth UX
 const isLoadingHistoryWithDelay = ref(false)
@@ -75,7 +82,15 @@ const selectedPermissionMode = ref<PermissionMode>('default')
 
 // Get display messages - either from live session or Claude Code history
 const displayMessages = computed<DisplayChatMessage[]>(() => {
-  // If viewing Claude Code history
+  // If continuing a history session, combine history + new live messages
+  if (isContinuingHistory.value && currentSessionId.value) {
+    const historyMessages = convertClaudeCodeMessages(claudeCodeMessages.value)
+    const liveMessages = sessionStore.getMessages(currentSessionId.value)
+    const newMessages = convertToDisplayMessages(liveMessages, streamingText.value)
+    return [...historyMessages, ...newMessages]
+  }
+
+  // If viewing Claude Code history (not continuing)
   if (viewMode.value === 'history' && claudeCodeMessages.value.length > 0) {
     return convertClaudeCodeMessages(claudeCodeMessages.value)
   }
@@ -91,6 +106,17 @@ const displayMessages = computed<DisplayChatMessage[]>(() => {
 onMounted(async () => {
   connect()
   await fetchSessions()
+})
+
+// Watch for errors and show toast
+watch(error, (newError) => {
+  if (newError) {
+    toast.add({
+      title: 'Error',
+      description: newError,
+      color: 'error',
+    })
+  }
 })
 
 // Handle Claude Code project selection (no URL navigation)
@@ -111,6 +137,7 @@ async function handleClaudeCodeSessionSelected(payload: { projectName: string; s
   urlSessionId.value = payload.sessionId
   currentSessionSummary.value = payload.sessionSummary
   currentProjectDisplayName.value = payload.projectDisplayName
+  isContinuingHistory.value = false  // Reset when selecting a new history session
 
   // Start loading with minimum duration
   isLoadingHistoryWithDelay.value = true
@@ -139,6 +166,7 @@ function handleSelectionCleared() {
   urlSessionId.value = null
   currentSessionSummary.value = ''
   currentProjectDisplayName.value = ''
+  isContinuingHistory.value = false
 }
 
 // Handle new chat - switch to live mode without affecting sidebar
@@ -148,13 +176,14 @@ function handleNewChat() {
   urlSessionId.value = null
   currentSessionSummary.value = ''
   currentProjectDisplayName.value = ''
+  isContinuingHistory.value = false
   createSession()
 }
 
-// Auto-scroll on new messages (only when not in history mode or near bottom)
+// Auto-scroll on new messages (when in live mode or continuing history)
 watch([displayMessages, streamingText], () => {
   nextTick(() => {
-    if (messagesContainerRef.value && viewMode.value === 'live') {
+    if (messagesContainerRef.value && (viewMode.value === 'live' || isContinuingHistory.value)) {
       messagesContainerRef.value.scrollTop = messagesContainerRef.value.scrollHeight
     }
   })
@@ -256,8 +285,13 @@ async function createSession() {
     // await router.push(`/cli/${data.id}`)
     // Fetch sessions in background without blocking
     fetchSessions()
-  } catch (e) {
+  } catch (e: any) {
     console.error('[ChatV2] Failed to create session:', e)
+    toast.add({
+      title: 'Failed to create session',
+      description: e.data?.message || e.message || 'Unknown error',
+      color: 'error',
+    })
   } finally {
     isCreatingSession.value = false
   }
@@ -272,9 +306,54 @@ async function selectSession(sessionId: string | null) {
   }
 }
 
-// Send message
-function handleSendMessage() {
-  if (!inputText.value.trim() || isStreaming.value || !currentSessionId.value) return
+// Send message (works in both live and history mode)
+async function handleSendMessage() {
+  if (!inputText.value.trim() || isStreaming.value) return
+
+  // If in history mode, start continuing the session
+  if (viewMode.value === 'history' && !isContinuingHistory.value) {
+    // Create a new session to continue the conversation
+    isCreatingSession.value = true
+    try {
+      const data = await $fetch<any>('/api/chat-ws/sessions', {
+        method: 'POST',
+        body: {
+          agentSlug: props.executionOptions.agentSlug,
+          workingDir: props.executionOptions.workingDir,
+          // Pass the history session ID for context (if backend supports resuming)
+          resumeSessionId: urlSessionId.value,
+        },
+      })
+
+      sessionStore.setActiveSession(data.id)
+      isContinuingHistory.value = true
+
+      // Now send the message with the new session
+      const success = sendChat(inputText.value, {
+        sessionId: data.id,
+        agentSlug: props.executionOptions.agentSlug,
+        workingDir: props.executionOptions.workingDir,
+        permissionMode: selectedPermissionMode.value,
+      })
+
+      if (success) {
+        inputText.value = ''
+      }
+    } catch (e: any) {
+      console.error('[ChatV2] Failed to create session for history continuation:', e)
+      toast.add({
+        title: 'Failed to continue conversation',
+        description: e.data?.message || e.message || 'Unknown error',
+        color: 'error',
+      })
+    } finally {
+      isCreatingSession.value = false
+    }
+    return
+  }
+
+  // Already continuing history or in live mode
+  if (!currentSessionId.value) return
 
   const success = sendChat(inputText.value, {
     sessionId: currentSessionId.value,
@@ -408,27 +487,17 @@ function handleOpenFile(filePath: string) {
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-          <!-- Permission Mode Selector (only in live mode) -->
+          <!-- Permission Mode Selector (only when viewing a specific chat session) -->
           <ChatV2PermissionModeSelector
-            v-if="viewMode === 'live'"
+            v-if="(viewMode === 'history' && urlSessionId) || (viewMode === 'live' && currentSessionId)"
             v-model="selectedPermissionMode"
             :options="permissionModeOptions"
           />
 
-          <!-- Session ID -->
+          <!-- Session ID (only in live mode) -->
           <span v-if="viewMode === 'live' && currentSessionId" class="text-[10px] font-mono" style="color: var(--text-tertiary);">
             {{ currentSessionId.slice(0, 8) }}
           </span>
-
-          <!-- Load more button for history (fallback) -->
-          <button
-            v-if="viewMode === 'history' && claudeCodeMessagesHasMore && !isLoadingMore && !isLoadingClaudeCodeMessages"
-            class="px-2 py-1 rounded text-[10px] font-medium hover-bg transition-all"
-            style="background: var(--surface-raised); color: var(--text-secondary);"
-            @click="loadMoreHistoryMessages()"
-          >
-            Load older messages
-          </button>
         </div>
       </div>
 
@@ -508,51 +577,69 @@ function handleOpenFile(filePath: string) {
       </div>
 
       <!-- Input -->
-      <div class="shrink-0 border-t" style="border-color: var(--border-subtle);">
-        <!-- History mode - Read only indicator -->
-        <div
-          v-if="viewMode === 'history'"
-          class="px-4 py-3 flex items-center justify-between"
-          style="background: var(--surface-raised);"
-        >
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-eye" class="size-4" style="color: var(--text-tertiary);" />
-            <span class="text-[12px]" style="color: var(--text-secondary);">
-              Viewing history from Claude Code CLI
-            </span>
-          </div>
-          <button
-            class="px-3 py-1.5 rounded-lg text-[11px] font-medium hover-bg transition-all"
-            style="background: var(--accent); color: white;"
-            @click="handleNewChat"
+      <div class="shrink-0 border-t relative" style="border-color: var(--border-subtle);">
+        <!-- History mode context indicator (floating, hidden when input is focused) -->
+        <Transition name="slide-fade">
+          <div
+            v-if="viewMode === 'history' && !isContinuingHistory && !isInputFocused"
+            class="absolute bottom-full left-0 right-0 px-3 py-1.5 flex items-center justify-between z-10"
+            style="background: var(--surface-raised); border-top: 1px solid var(--border-subtle);"
           >
-            <UIcon name="i-lucide-plus" class="size-3 inline-block mr-1" />
-            New Chat
-          </button>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-history" class="size-3" style="color: var(--accent);" />
+              <span class="text-[10px]" style="color: var(--text-secondary);">
+                Continue this conversation or start fresh
+              </span>
+            </div>
+            <button
+              class="px-2 py-0.5 rounded text-[10px] font-medium hover-bg transition-all"
+              style="background: var(--surface); color: var(--text-tertiary);"
+              @click="handleNewChat"
+            >
+              <UIcon name="i-lucide-plus" class="size-3 inline-block mr-0.5" />
+              New Chat
+            </button>
+          </div>
+        </Transition>
+
+        <!-- Continuing history indicator (floating) -->
+        <div
+          v-if="isContinuingHistory"
+          class="absolute bottom-full left-0 right-0 px-3 py-1 flex items-center gap-2 z-10"
+          style="background: rgba(229, 169, 62, 0.08); border-top: 1px solid var(--border-subtle);"
+        >
+          <UIcon name="i-lucide-git-branch" class="size-3" style="color: var(--accent);" />
+          <span class="text-[10px]" style="color: var(--accent);">
+            Continuing from history
+          </span>
         </div>
 
-        <!-- Live mode - Input -->
+        <!-- Chat Input - Works in both modes -->
         <ChatV2Input
-          v-else
           v-model="inputText"
-          :disabled="!currentSessionId || !isConnected || isStreaming"
+          :disabled="(!currentSessionId && viewMode === 'live') || !isConnected || isStreaming || isCreatingSession"
           :is-streaming="isStreaming"
+          :placeholder="viewMode === 'history' && !isContinuingHistory ? 'Continue this conversation...' : 'Message Claude...'"
           @send="handleSendMessage"
           @abort="abort()"
+          @focus="isInputFocused = true"
+          @blur="isInputFocused = false"
         />
       </div>
 
-      <!-- Error banner -->
-      <div
-        v-if="error"
-        class="absolute bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg"
-        style="background: rgba(205, 49, 49, 0.9); color: white;"
-      >
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-alert-circle" class="size-4" />
-          <span class="text-[12px] font-medium">{{ error }}</span>
-        </div>
-      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.2s ease;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+</style>

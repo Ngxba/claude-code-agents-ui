@@ -3,12 +3,15 @@ const props = defineProps<{
   modelValue: string
   disabled?: boolean
   isStreaming?: boolean
+  placeholder?: string
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'send'): void
   (e: 'abort'): void
+  (e: 'focus'): void
+  (e: 'blur'): void
 }>()
 
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
@@ -51,10 +54,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="px-4 py-3" style="background: var(--surface);">
+  <div class="px-3 py-2" style="background: var(--surface);">
     <!-- Input container -->
     <div
-      class="relative flex items-end gap-2 p-2 rounded-xl transition-all duration-200"
+      class="relative flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200"
       :style="{
         background: 'var(--surface-raised)',
         border: isFocused ? '1px solid var(--accent)' : '1px solid var(--border-subtle)',
@@ -67,24 +70,24 @@ onMounted(() => {
         v-model="localValue"
         :disabled="disabled"
         rows="1"
-        class="flex-1 px-2 py-1.5 bg-transparent text-[13px] resize-none focus:outline-none"
+        class="flex-1 bg-transparent text-[13px] resize-none focus:outline-none leading-5"
         :style="{
           color: disabled ? 'var(--text-disabled)' : 'var(--text-primary)',
           maxHeight: '160px',
         }"
-        placeholder="Send a message..."
+        :placeholder="placeholder || 'Send a message...'"
         @keydown="handleKeydown"
         @input="autoResize"
-        @focus="isFocused = true"
-        @blur="isFocused = false"
+        @focus="isFocused = true; emit('focus')"
+        @blur="isFocused = false; emit('blur')"
       />
 
       <!-- Action buttons -->
-      <div class="flex items-center gap-1 shrink-0 pb-0.5">
+      <div class="flex items-center gap-1 shrink-0">
         <!-- Abort button when streaming -->
         <button
           v-if="isStreaming"
-          class="p-2 rounded-lg transition-all hover:opacity-80"
+          class="p-1.5 rounded-lg transition-all hover:opacity-80"
           style="background: rgba(239, 68, 68, 0.1); color: #ef4444;"
           title="Stop generating"
           @click="emit('abort')"
@@ -95,7 +98,7 @@ onMounted(() => {
         <!-- Send button -->
         <button
           v-else
-          class="p-2 rounded-lg transition-all"
+          class="p-1.5 rounded-lg transition-all"
           :style="{
             background: disabled || !localValue.trim() ? 'transparent' : 'var(--accent)',
             color: disabled || !localValue.trim() ? 'var(--text-disabled)' : 'white',
@@ -111,13 +114,13 @@ onMounted(() => {
     </div>
 
     <!-- Bottom hints -->
-    <div class="flex items-center justify-between mt-2 px-1">
+    <div class="flex items-center justify-between mt-1.5 px-1">
       <div class="flex items-center gap-3 text-[10px]" style="color: var(--text-tertiary);">
-        <span>
+        <span class="flex items-center gap-1">
           <kbd class="px-1 py-0.5 rounded text-[9px]" style="background: var(--surface-raised);">Enter</kbd>
           send
         </span>
-        <span>
+        <span class="flex items-center gap-1">
           <kbd class="px-1 py-0.5 rounded text-[9px]" style="background: var(--surface-raised);">Shift+Enter</kbd>
           newline
         </span>
