@@ -1,6 +1,6 @@
 <div align="center">
 
-# agents-ui
+# Claude Code Agent UI
 
 **Visualize, manage, and orchestrate your Claude Code ecosystem — all in one place.**
 
