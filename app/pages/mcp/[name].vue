@@ -20,6 +20,7 @@ const form = ref({
   argsString: '',
   url: '',
   scope: 'global' as 'global' | 'project',
+  disabled: false,
   envPairs: [] as { key: string; value: string }[],
   headerPairs: [] as { key: string; value: string }[]
 })
@@ -39,6 +40,7 @@ onMounted(async () => {
     form.value.argsString = data.args?.join(' ') || ''
     form.value.url = data.url || ''
     form.value.scope = data.scope
+    form.value.disabled = !!data.disabled
     
     if (data.env) {
       form.value.envPairs = Object.entries(data.env).map(([key, value]) => ({ key, value }))
@@ -69,7 +71,8 @@ async function save() {
     name: form.value.name.trim(),
     oldName: name,
     transport: form.value.transport,
-    scope: form.value.scope
+    scope: form.value.scope,
+    disabled: form.value.disabled
   }
 
   if (form.value.transport === 'stdio') {
@@ -179,6 +182,26 @@ useUnsavedChanges(isDirty)
                   <option value="project">Project (.mcp.json)</option>
                 </select>
                 <p class="text-[10px] italic opacity-60" style="color: var(--text-tertiary);">Scope cannot be changed after creation.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 pt-2">
+              <label class="field-toggle">
+                <input
+                  type="checkbox"
+                  :checked="!form.disabled"
+                  @change="form.disabled = !($event.target as HTMLInputElement).checked"
+                />
+                <span class="field-toggle__track">
+                  <span class="field-toggle__thumb" />
+                </span>
+              </label>
+              <div class="flex flex-col">
+                <span class="text-[13px] font-medium" :class="form.disabled ? 'text-secondary' : 'text-primary'">
+                  {{ form.disabled ? 'Server Disabled' : 'Server Enabled' }}
+                </span>
+                <span class="text-[11px] text-tertiary opacity-60">
+                  {{ form.disabled ? 'This server will not be loaded by Claude.' : 'This server is active and available for use.' }}
+                </span>
               </div>
             </div>
           </section>

@@ -144,7 +144,7 @@ async function createBlank() {
           <button
             v-for="template in workflowTemplates"
             :key="template.id"
-            class="rounded-lg p-4 text-left hover-card focus-ring relative overflow-hidden group bg-card"
+            class="rounded-lg p-4 text-left hover-lift focus-ring relative overflow-hidden group bg-card border border-subtle"
             :disabled="creatingTemplate !== null"
             @click="useWorkflowTemplate(template.id)"
           >

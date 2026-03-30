@@ -43,9 +43,9 @@ const toast = useToast();
 
 const creating = ref<string | null>(null);
 const searchQuery = ref("");
-const activeTab = ref<"templates" | "extensions" | "imported">(
-  route.query.tab === "extensions"
-    ? "extensions"
+const activeTab = ref<"templates" | "marketplace" | "imported">(
+  route.query.tab === "marketplace"
+    ? "marketplace"
     : route.query.tab === "imported"
       ? "imported"
       : "templates",
@@ -55,6 +55,24 @@ const showImportModal = ref(false);
 const showAddMarketplaceModal = ref(false);
 const installingPlugin = ref<string | null>(null);
 const uninstallingPlugin = ref<string | null>(null);
+const marketplaceLimits = ref<Record<string, number>>({});
+const installedLimits = ref<Record<string, number>>({});
+
+const DEFAULT_LIMIT = 5;
+
+function getLimitFor(marketplace: string) {
+  return marketplaceLimits.value[marketplace] || DEFAULT_LIMIT;
+}
+
+function showMoreInstalled(marketplace: string) {
+  const current = installedLimits.value[marketplace] || DEFAULT_LIMIT;
+  installedLimits.value[marketplace] = current + 10;
+}
+
+function showMoreAvailable(marketplace: string) {
+  const current = getLimitFor(marketplace);
+  marketplaceLimits.value[marketplace] = current + 10;
+}
 
 const filteredAvailablePlugins = computed(() => {
   if (!searchQuery.value) return availablePlugins.value;
@@ -303,6 +321,13 @@ async function onRemove(owner: string, repo: string) {
     toast.add({ title: "Failed to remove", color: "error" });
   }
 }
+
+function scrollToMarketplace(name: string) {
+  const el = document.getElementById(`available-${name}`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
 </script>
 
 <template>
@@ -352,21 +377,21 @@ async function onRemove(owner: string, repo: string) {
           class="px-3 py-1.5 rounded-md text-[12px] font-medium transition-all"
           :style="{
             background:
-              activeTab === 'extensions'
+              activeTab === 'marketplace'
                 ? 'var(--surface-base)'
                 : 'transparent',
             color:
-              activeTab === 'extensions'
+              activeTab === 'marketplace'
                 ? 'var(--text-primary)'
                 : 'var(--text-tertiary)',
             boxShadow:
-              activeTab === 'extensions'
+              activeTab === 'marketplace'
                 ? '0 1px 3px var(--card-shadow)'
                 : 'none',
           }"
-          @click="activeTab = 'extensions'"
+          @click="activeTab = 'marketplace'"
         >
-          Extensions ({{ plugins.length }})
+          Marketplace ({{ availablePlugins.length }})
         </button>
         <button
           class="px-3 py-1.5 rounded-md text-[12px] font-medium transition-all"
@@ -401,7 +426,7 @@ async function onRemove(owner: string, repo: string) {
         :placeholder="
           activeTab === 'templates'
             ? 'Search templates...'
-            : 'Search extensions...'
+            : 'Search marketplace...'
         "
         class="field-search max-w-xs"
       />
@@ -424,7 +449,7 @@ async function onRemove(owner: string, repo: string) {
             <div
               v-for="template in templates"
               :key="template.id"
-              class="rounded-xl overflow-hidden bg-card group flex flex-col"
+              class="rounded-xl overflow-hidden bg-card group flex flex-col hover-lift border border-subtle"
             >
               <div class="p-4 space-y-3 flex-1">
                 <div class="flex items-center gap-2.5">
@@ -523,7 +548,7 @@ async function onRemove(owner: string, repo: string) {
             <div
               v-for="template in filteredCommandTemplates"
               :key="template.id"
-              class="rounded-xl overflow-hidden bg-card group"
+              class="rounded-xl overflow-hidden bg-card group hover-lift border border-subtle"
             >
               <div class="p-4 space-y-3">
                 <div class="flex items-center gap-2.5">
@@ -644,8 +669,8 @@ async function onRemove(owner: string, repo: string) {
         </div>
       </template>
 
-      <!-- Extensions Tab -->
-      <template v-if="activeTab === 'extensions'">
+      <!-- Marketplace Tab -->
+      <template v-if="activeTab === 'marketplace'">
         <p class="text-[13px] leading-relaxed text-label">
           Browse, install, and manage plugins from your registered marketplaces.
         </p>
@@ -659,19 +684,55 @@ async function onRemove(owner: string, repo: string) {
           <span class="text-[12px]" style="color: var(--error)">{{ pluginsError }}</span>
         </div>
 
-        <!-- Section 1: Installed Plugins -->
+        <!-- Section 1: Marketplace Sources -->
+        <div class="space-y-3">
+          <h3 class="text-section-label flex items-center gap-1.5">
+            <UIcon name="i-lucide-settings" class="size-3.5" />
+            Marketplace sources ({{ marketplaceSources.length }})
+          </h3>
+          <div class="space-y-3 pl-4.5">
+            <div v-if="sourcesLoading" class="space-y-1">
+              <SkeletonRow v-for="i in 2" :key="i" />
+            </div>
+
+            <div v-else-if="marketplaceSources.length" class="space-y-2">
+              <MarketplaceSourceRow
+                v-for="source in marketplaceSources"
+                :key="source.name"
+                :source="source"
+                @update="onUpdateMarketplace"
+                @remove="onRemoveMarketplace"
+                @click-name="scrollToMarketplace"
+              />
+            </div>
+
+            <p v-else class="text-[11px] text-meta">No marketplace sources registered.</p>
+
+            <UButton
+              label="Add Marketplace"
+              icon="i-lucide-plus"
+              size="xs"
+              variant="soft"
+              @click="showAddMarketplaceModal = true"
+            />
+          </div>
+        </div>
+
+        <div class="h-px bg-border-subtle my-2" />
+
+        <!-- Section 2: Installed Plugins -->
         <div v-if="pluginsLoading" class="space-y-1">
           <SkeletonRow v-for="i in 5" :key="i" />
         </div>
 
         <div v-else-if="Object.keys(groupedByMarketplace).length" class="space-y-4">
           <div v-for="(group, marketplace) in groupedByMarketplace" :key="marketplace" class="space-y-3">
-            <h3 class="text-section-label">{{ marketplace }}</h3>
+            <h3 class="text-section-label">Installed from {{ marketplace }}</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div
-                v-for="plugin in group"
+                v-for="plugin in group.slice(0, installedLimits[marketplace] || DEFAULT_LIMIT)"
                 :key="plugin.id"
-                class="rounded-xl overflow-hidden bg-card group flex flex-col"
+                class="rounded-xl overflow-hidden bg-card group flex flex-col hover-lift border border-subtle"
               >
                 <div class="p-4 space-y-3 flex-1">
                   <div class="flex items-center gap-2.5">
@@ -721,14 +782,25 @@ async function onRemove(owner: string, repo: string) {
                 </div>
               </div>
             </div>
+
+            <div v-if="group.length > (installedLimits[marketplace] || DEFAULT_LIMIT)" class="flex justify-center pt-2">
+              <UButton
+                label="Show more"
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-chevron-down"
+                @click="showMoreInstalled(marketplace)"
+              />
+            </div>
           </div>
         </div>
 
-        <!-- Section 2: Available Plugins -->
-        <div v-if="!marketplaceLoading && Object.keys(availableGroupedByMarketplace).length" class="space-y-4">
+        <!-- Section 3: Available Plugins -->
+        <div v-if="!marketplaceLoading && Object.keys(availableGroupedByMarketplace).length" class="space-y-4 pt-4">
           <h3 class="text-section-label">Available to install</h3>
 
-          <div v-for="(group, marketplace) in availableGroupedByMarketplace" :key="marketplace" class="space-y-3">
+          <div v-for="(group, marketplace) in availableGroupedByMarketplace" :key="marketplace" :id="`available-${marketplace}`" class="space-y-3 pt-6">
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-store" class="size-3.5 text-meta" />
               <span class="font-mono text-[12px] font-medium text-body">{{ marketplace }}</span>
@@ -736,9 +808,9 @@ async function onRemove(owner: string, repo: string) {
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div
-                v-for="plugin in group"
+                v-for="plugin in group.slice(0, getLimitFor(marketplace))"
                 :key="plugin.name"
-                class="rounded-xl overflow-hidden bg-card group flex flex-col"
+                class="rounded-xl overflow-hidden bg-card group flex flex-col hover-lift border border-subtle"
               >
                 <div class="p-4 space-y-3 flex-1">
                   <div class="flex items-center gap-2.5">
@@ -773,45 +845,23 @@ async function onRemove(owner: string, repo: string) {
                 </div>
               </div>
             </div>
+            
+            <div v-if="group.length > getLimitFor(marketplace)" class="flex justify-center pt-2">
+              <UButton
+                label="Show more"
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-chevron-down"
+                @click="showMoreAvailable(marketplace)"
+              />
+            </div>
           </div>
         </div>
 
         <div v-else-if="marketplaceLoading" class="space-y-1">
           <SkeletonRow v-for="i in 3" :key="i" />
         </div>
-
-        <!-- Section 3: Marketplace Sources -->
-        <details class="group">
-          <summary class="text-[12px] flex items-center gap-1.5 text-meta cursor-pointer">
-            <UIcon name="i-lucide-settings" class="size-3" />
-            Marketplace sources ({{ marketplaceSources.length }})
-          </summary>
-          <div class="mt-3 space-y-3">
-            <div v-if="sourcesLoading" class="space-y-1">
-              <SkeletonRow v-for="i in 2" :key="i" />
-            </div>
-
-            <div v-else-if="marketplaceSources.length" class="space-y-2">
-              <MarketplaceSourceRow
-                v-for="source in marketplaceSources"
-                :key="source.name"
-                :source="source"
-                @update="onUpdateMarketplace"
-                @remove="onRemoveMarketplace"
-              />
-            </div>
-
-            <p v-else class="text-[12px] text-meta">No marketplace sources registered.</p>
-
-            <UButton
-              label="Add marketplace"
-              icon="i-lucide-plus"
-              size="xs"
-              variant="soft"
-              @click="showAddMarketplaceModal = true"
-            />
-          </div>
-        </details>
       </template>
     </div>
 

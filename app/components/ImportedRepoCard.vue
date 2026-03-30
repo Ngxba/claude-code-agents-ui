@@ -105,7 +105,7 @@ function formatDate(iso: string) {
 </script>
 
 <template>
-  <div class="rounded-xl overflow-hidden bg-card">
+  <div class="rounded-xl overflow-hidden bg-card hover-lift border border-subtle">
     <div class="p-4 space-y-3">
       <div class="flex items-center gap-2.5">
         <div

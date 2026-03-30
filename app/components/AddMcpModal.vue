@@ -9,6 +9,7 @@ const command = ref('')
 const argsString = ref('')
 const url = ref('')
 const scope = ref<'global' | 'project'>('global')
+const enabled = ref(true)
 
 const envPairs = ref<{ key: string; value: string }[]>([])
 const headerPairs = ref<{ key: string; value: string }[]>([])
@@ -27,7 +28,8 @@ function submit() {
   const payload: any = {
     name: name.value.trim(),
     transport: transport.value,
-    scope: scope.value
+    scope: scope.value,
+    disabled: !enabled.value
   }
 
   if (transport.value === 'stdio') {
@@ -143,6 +145,23 @@ function submit() {
           <option value="project">Project (.mcp.json)</option>
         </select>
         <span class="field-hint">Project scope is only available in the current directory</span>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2">
+        <label class="field-toggle">
+          <input
+            type="checkbox"
+            v-model="enabled"
+          />
+          <span class="field-toggle__track">
+            <span class="field-toggle__thumb" />
+          </span>
+        </label>
+        <div class="flex flex-col">
+          <span class="text-[13px] font-medium" :class="!enabled ? 'text-secondary' : 'text-primary'">
+            {{ !enabled ? 'Create as Disabled' : 'Server Enabled' }}
+          </span>
+        </div>
       </div>
     </div>
 

@@ -1,10 +1,15 @@
 <script setup lang="ts">
 const { plugins, loading, error, fetchAll, toggleEnabled } = usePlugins()
+const { fetchAvailable } = useMarketplace()
 const toast = useToast()
 
 const searchQuery = ref('')
+const showAddPluginModal = ref(false)
 
-onMounted(() => fetchAll())
+onMounted(() => {
+  fetchAll()
+  fetchAvailable()
+})
 
 const filteredPlugins = computed(() => {
   if (!searchQuery.value) return plugins.value
@@ -38,6 +43,11 @@ async function onToggle(id: string, enabled: boolean) {
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+function onPluginInstalled() {
+  showAddPluginModal.value = false
+  fetchAll()
+}
 </script>
 
 <template>
@@ -45,6 +55,15 @@ function formatDate(iso: string) {
     <PageHeader title="Plugins">
       <template #trailing>
         <span class="font-mono text-[12px] text-meta">{{ plugins.length }}</span>
+      </template>
+      <template #right>
+        <UButton
+          label="Add Plugin"
+          icon="i-lucide-plus"
+          size="sm"
+          variant="soft"
+          @click="showAddPluginModal = true"
+        />
       </template>
     </PageHeader>
 
@@ -154,13 +173,40 @@ function formatDate(iso: string) {
       </div>
 
       <!-- Empty state: no plugins -->
-      <div v-else class="flex flex-col items-center justify-center py-12 space-y-5">
-        <div class="rounded-lg p-4 bg-card max-w-sm w-full font-mono text-[12px] text-label leading-relaxed">
-          <span class="text-meta"># Install a plugin via Claude Code CLI</span><br>
-          <span style="color: var(--accent);">claude</span> plugin add &lt;plugin-name&gt;
+      <div v-else class="flex flex-col items-center justify-center py-12 space-y-6">
+        <div class="rounded-2xl p-8 bg-card max-w-sm w-full font-mono text-[12px] text-label leading-relaxed text-center space-y-6 shadow-sm border border-border-subtle">
+          <div class="size-16 mx-auto rounded-2xl bg-accent-muted flex items-center justify-center">
+            <UIcon name="i-lucide-puzzle" class="size-8 text-accent" />
+          </div>
+          <div class="space-y-4">
+            <p class="text-[13px] text-body font-sans font-medium">No plugins installed yet</p>
+            <div class="px-3 py-2 rounded-lg bg-surface-base text-meta border border-border-subtle text-left overflow-hidden">
+              <span class="opacity-50"># Install via CLI</span><br/>
+              <span class="text-accent">claude</span> plugin add &lt;name&gt;
+            </div>
+          </div>
         </div>
-        <p class="text-[13px] text-label">Plugins are installed via the Claude Code CLI and managed here.</p>
+        
+        <div class="flex gap-3">
+          <UButton
+            label="Browse Marketplace"
+            icon="i-lucide-store"
+            variant="soft"
+            to="/explore?tab=marketplace"
+          />
+          <UButton
+            label="Quick Install"
+            icon="i-lucide-plus"
+            @click="showAddPluginModal = true"
+          />
+        </div>
       </div>
     </div>
+
+    <UModal v-model:open="showAddPluginModal">
+      <template #content>
+        <AddPluginModal @installed="onPluginInstalled" @close="showAddPluginModal = false" />
+      </template>
+    </UModal>
   </div>
 </template>

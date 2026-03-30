@@ -960,6 +960,20 @@ button:not(:disabled),
   transition-duration: 0.1s;
 }
 
+.hover-lift {
+  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.hover-lift:hover {
+  transform: translateY(-4px) scale(1.015);
+  border-color: var(--border-emphasis) !important;
+  box-shadow: 0 12px 40px var(--card-shadow);
+  background: var(--surface-overlay) !important;
+  z-index: 10;
+}
+.hover-lift:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
 .hover-stat {
   transition:
     border-color 0.15s,

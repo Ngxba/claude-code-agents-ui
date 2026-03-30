@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { name, transport, command, args, env, url, headers, scope, workingDir, oldName } = body
+  const { name, transport, command, args, env, url, headers, scope, workingDir, oldName, disabled } = body
 
   if (!name || !scope || !transport) {
     throw createError({ statusCode: 400, message: 'Missing required fields' })
@@ -44,6 +44,10 @@ export default defineEventHandler(async (event) => {
 
   // Build config based on transport
   const config: any = {}
+  if (disabled !== undefined) {
+    config.disabled = !!disabled
+  }
+  
   if (transport === 'stdio') {
     if (!command) throw createError({ statusCode: 400, message: 'Command is required for stdio transport' })
     config.command = command

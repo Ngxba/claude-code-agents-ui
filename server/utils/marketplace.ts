@@ -36,49 +36,86 @@ export async function readKnownMarketplaces(): Promise<Record<string, KnownMarke
 }
 
 export async function scanMarketplacePlugins(installLocation: string): Promise<ScannedPlugin[]> {
-  const pluginsDir = join(installLocation, 'plugins')
-  if (!existsSync(pluginsDir)) return []
-
   const plugins: ScannedPlugin[] = []
-  const entries = await readdir(pluginsDir, { withFileTypes: true })
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-
-    const pluginDir = join(pluginsDir, entry.name)
-    const pluginJsonPath = join(pluginDir, '.claude-plugin', 'plugin.json')
-
-    if (!existsSync(pluginJsonPath)) continue
-
+  // Method 1: Centralized marketplace.json (Modern format)
+  const marketplaceJsonPath = join(installLocation, '.claude-plugin', 'marketplace.json')
+  if (existsSync(marketplaceJsonPath)) {
     try {
-      const raw = await readFile(pluginJsonPath, 'utf-8')
-      const pluginJson = JSON.parse(raw) as PluginJson
-
-      // Count skills
-      let skillCount = 0
-      const skillsDir = join(pluginDir, 'skills')
-      if (existsSync(skillsDir)) {
-        const skillEntries = await readdir(skillsDir, { withFileTypes: true })
-        skillCount = skillEntries.filter(e => e.isDirectory()).length
+      const raw = await readFile(marketplaceJsonPath, 'utf-8')
+      const data = JSON.parse(raw) as { plugins: PluginJson[] }
+      if (Array.isArray(data.plugins)) {
+        for (const p of data.plugins) {
+          plugins.push({
+            name: p.name,
+            description: p.description || '',
+            author: p.author,
+            skillCount: 0, // Metadata only marketplaces don't know skill counts without cloning
+            commandCount: 0,
+          })
+        }
       }
+    } catch (e) {
+      console.error(`[Marketplace] Failed to parse ${marketplaceJsonPath}:`, e)
+    }
+  }
 
-      // Count commands
-      let commandCount = 0
-      const commandsDir = join(pluginDir, 'commands')
-      if (existsSync(commandsDir)) {
-        const cmdEntries = await readdir(commandsDir, { withFileTypes: true })
-        commandCount = cmdEntries.filter(e => e.isDirectory()).length
+  // Method 2: Local plugins/ directory (Legacy/Mono-repo format)
+  // We combine both to ensure we don't miss anything
+  const pluginsDir = join(installLocation, 'plugins')
+  if (existsSync(pluginsDir)) {
+    try {
+      const entries = await readdir(pluginsDir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue
+
+        const pluginDir = join(pluginsDir, entry.name)
+        const pluginJsonPath = join(pluginDir, '.claude-plugin', 'plugin.json')
+
+        if (!existsSync(pluginJsonPath)) continue
+
+        try {
+          const raw = await readFile(pluginJsonPath, 'utf-8')
+          const pluginJson = JSON.parse(raw) as PluginJson
+
+          // Only add if not already added by centralized json (prefer local metadata if both exist)
+          const existingIdx = plugins.findIndex(p => p.name === (pluginJson.name || entry.name))
+          
+          // Count skills
+          let skillCount = 0
+          const skillsDir = join(pluginDir, 'skills')
+          if (existsSync(skillsDir)) {
+            const skillEntries = await readdir(skillsDir, { withFileTypes: true })
+            skillCount = skillEntries.filter(e => e.isDirectory()).length
+          }
+
+          // Count commands
+          let commandCount = 0
+          const commandsDir = join(pluginDir, 'commands')
+          if (existsSync(commandsDir)) {
+            const cmdEntries = await readdir(commandsDir, { withFileTypes: true })
+            commandCount = cmdEntries.filter(e => e.isDirectory()).length
+          }
+
+          const scanned: ScannedPlugin = {
+            name: pluginJson.name || entry.name,
+            description: pluginJson.description || '',
+            author: pluginJson.author,
+            skillCount,
+            commandCount,
+          }
+
+          if (existingIdx >= 0) {
+            plugins[existingIdx] = scanned
+          } else {
+            plugins.push(scanned)
+          }
+        } catch {
+          // Skip malformed plugins
+        }
       }
-
-      plugins.push({
-        name: pluginJson.name || entry.name,
-        description: pluginJson.description || '',
-        author: pluginJson.author,
-        skillCount,
-        commandCount,
-      })
-    } catch {
-      // Skip malformed plugins
+    } catch (e) {
+      console.error(`[Marketplace] Failed to read ${pluginsDir}:`, e)
     }
   }
 

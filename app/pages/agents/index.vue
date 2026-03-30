@@ -92,7 +92,7 @@ async function useTemplate(templateId: string) {
           v-for="(agent, idx) in filteredAgents"
           :key="agent.slug"
           :to="`/agents/${agent.slug}`"
-          class="stagger-item rounded-xl p-4 focus-ring hover-card relative overflow-hidden group bg-card"
+          class="rounded-xl p-4 focus-ring hover-lift border border-subtle relative overflow-hidden group bg-card"
         >
           <!-- Color accent bar — thicker -->
           <div
@@ -166,7 +166,7 @@ async function useTemplate(templateId: string) {
           <button
             v-for="template in agentTemplates"
             :key="template.id"
-            class="rounded-lg p-4 text-left hover-card focus-ring relative overflow-hidden group bg-card"
+            class="rounded-lg p-4 text-left hover-lift border border-subtle focus-ring relative overflow-hidden group bg-card"
             :disabled="creatingTemplate !== null"
             @click="useTemplate(template.id)"
           >

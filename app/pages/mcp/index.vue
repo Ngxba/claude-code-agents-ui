@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-const { servers, loading, error, fetchServers, addServer, removeServer } = useMCP()
+const { servers, loading, error, fetchServers, addServer, toggleServer, removeServer } = useMCP()
 const { isPanelOpen, pendingInput } = useChat()
 
 const isAddModalOpen = ref(false)
@@ -60,12 +60,12 @@ function testServer(name: string) {
           v-for="server in servers"
           :key="server.name"
           :to="`/mcp/${encodeURIComponent(server.name)}?scope=${server.scope}`"
-          class="server-card group relative p-4 rounded-xl border border-subtle flex flex-col gap-3 transition-colors hover:border-accent cursor-pointer"
+          class="bg-card group relative p-4 rounded-xl flex flex-col gap-3 hover-lift focus-ring cursor-pointer"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 mb-1">
-                <h3 class="text-[14px] font-semibold text-primary font-display truncate">{{ server.name }}</h3>
+                <h3 class="text-[14px] font-semibold text-primary font-display truncate" :class="{ 'opacity-50': server.disabled }">{{ server.name }}</h3>
                 <span
                   class="text-[10px] px-1.5 py-0.5 rounded font-medium tracking-wide uppercase"
                   :class="server.scope === 'global' ? 'bg-accent-subtle text-accent border border-accent-subtle' : 'bg-surface-raised text-secondary border border-subtle'"
@@ -75,34 +75,33 @@ function testServer(name: string) {
                 <span class="text-[10px] px-1.5 py-0.5 rounded font-medium tracking-wide uppercase bg-surface-raised text-meta border border-subtle">
                   {{ server.transport }}
                 </span>
+                <span v-if="server.disabled" class="text-[10px] px-1.5 py-0.5 rounded font-medium tracking-wide uppercase bg-error/10 text-error border border-error/20">
+                  Disabled
+                </span>
               </div>
-              <div v-if="server.transport === 'stdio'" class="text-[12px] font-mono text-meta truncate" :title="server.command + ' ' + (server.args?.join(' ') || '')">
+              <div v-if="server.transport === 'stdio'" class="text-[12px] font-mono text-meta truncate" :title="server.command + ' ' + (server.args?.join(' ') || '')" :class="{ 'opacity-50': server.disabled }">
                 {{ server.command }} <span v-if="server.args?.length">{{ server.args.join(' ') }}</span>
               </div>
-              <div v-else class="text-[12px] font-mono text-meta truncate" :title="server.url">
+              <div v-else class="text-[12px] font-mono text-meta truncate" :title="server.url" :class="{ 'opacity-50': server.disabled }">
                 {{ server.url }}
               </div>
             </div>
             
-            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" @click.prevent>
-              <button
-                class="p-1.5 rounded-lg hover:bg-surface-raised text-meta hover:text-accent"
-                title="Test in Chat"
-                @click="testServer(server.name)"
-              >
-                <UIcon name="i-lucide-message-square" class="size-4" />
-              </button>
-              <button
-                class="p-1.5 rounded-lg hover:bg-surface-raised text-meta hover:text-error"
-                title="Remove Server"
-                @click="removeServer(server.name, server.scope)"
-              >
-                <UIcon name="i-lucide-trash-2" class="size-4" />
-              </button>
+            <div class="flex items-center gap-2" @click.prevent>
+              <label class="field-toggle scale-90" @click.stop>
+                <input
+                  type="checkbox"
+                  :checked="!server.disabled"
+                  @change="toggleServer(server)"
+                />
+                <span class="field-toggle__track">
+                  <span class="field-toggle__thumb" />
+                </span>
+              </label>
             </div>
           </div>
 
-          <div v-if="(server.env && Object.keys(server.env).length) || (server.headers && Object.keys(server.headers).length)" class="mt-auto pt-3 border-t border-subtle flex items-center gap-2">
+          <div v-if="(server.env && Object.keys(server.env).length) || (server.headers && Object.keys(server.headers).length)" class="mt-auto pt-3 border-t border-subtle flex items-center gap-2" :class="{ 'opacity-50': server.disabled }">
             <UIcon :name="server.transport === 'stdio' ? 'i-lucide-key' : 'i-lucide-shield-check'" class="size-3 text-meta" />
             <span class="text-[11px] text-meta">
               {{ server.transport === 'stdio' ? `Has ${Object.keys(server.env || {}).length} env variable(s)` : `Has ${Object.keys(server.headers || {}).length} header(s)` }}
@@ -156,9 +155,6 @@ function testServer(name: string) {
 .text-error { color: var(--error); }
 .font-display { font-family: var(--font-display); }
 
-.server-card {
-  background: var(--surface-base);
-}
 .btn-primary {
   background: var(--accent);
   color: var(--bg-primary);

@@ -6,18 +6,18 @@ const emit = defineEmits<{
 const { addSource } = useMarketplace()
 const toast = useToast()
 
-const url = ref('')
+const identifier = ref('')
 const adding = ref(false)
 const error = ref('')
 
 async function doAdd() {
-  if (!url.value.trim()) return
+  if (!identifier.value.trim()) return
   adding.value = true
   error.value = ''
   try {
-    await addSource(url.value.trim())
+    await addSource(identifier.value.trim())
     toast.add({ title: 'Marketplace added', color: 'success' })
-    url.value = ''
+    identifier.value = ''
     emit('added')
   } catch (e: any) {
     error.value = e.data?.data?.message || e.data?.message || e.message || 'Failed to add marketplace'
@@ -31,18 +31,18 @@ async function doAdd() {
   <div class="p-6 space-y-4 bg-overlay">
     <h3 class="text-page-title">Add Marketplace</h3>
     <p class="text-[12px] text-label leading-relaxed">
-      Add a marketplace source to discover and install plugins. Provide a GitHub URL or local directory path.
+      Add a marketplace source to discover and install plugins. You can use the shorthand format (owner/repo) or a full URL.
     </p>
 
     <div class="field-group">
-      <label class="field-label">Source URL</label>
+      <label class="field-label">Marketplace Identifier</label>
       <input
-        v-model="url"
+        v-model="identifier"
         class="field-input"
-        placeholder="https://github.com/owner/marketplace-repo"
+        placeholder="e.g. obra/superpowers-marketplace"
         @keydown.enter="doAdd"
       />
-      <span class="field-hint">GitHub repo URL, git URL, or local directory path</span>
+      <span class="field-hint">Format: owner/repo, GitHub URL, or local path</span>
     </div>
 
     <div
@@ -55,11 +55,11 @@ async function doAdd() {
 
     <div class="flex justify-end gap-2">
       <UButton
-        label="Add"
+        label="Add Marketplace"
         icon="i-lucide-plus"
         size="sm"
         :loading="adding"
-        :disabled="!url.trim()"
+        :disabled="!identifier.trim()"
         @click="doAdd"
       />
     </div>

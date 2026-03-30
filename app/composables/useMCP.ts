@@ -7,6 +7,7 @@ export interface McpServer {
   url?: string
   headers?: Record<string, string>
   scope: 'global' | 'project'
+  disabled?: boolean
 }
 
 export function useMCP() {
@@ -74,6 +75,23 @@ export function useMCP() {
     }
   }
 
+  async function toggleServer(server: McpServer) {
+    try {
+      const newDisabled = !server.disabled
+      await addServer({
+        ...server,
+        oldName: server.name,
+        disabled: newDisabled
+      })
+      toast.add({ 
+        title: `Server ${server.name} ${newDisabled ? 'disabled' : 'enabled'}`, 
+        color: 'success' 
+      })
+    } catch (err: any) {
+      toast.add({ title: 'Failed to toggle server', description: err.message, color: 'error' })
+    }
+  }
+
   async function removeServer(name: string, scope: 'global' | 'project') {
     try {
       await $fetch(`/api/mcp/${encodeURIComponent(name)}`, {
@@ -95,6 +113,7 @@ export function useMCP() {
     fetchServers,
     fetchServer,
     addServer,
+    toggleServer,
     removeServer
   }
 }
