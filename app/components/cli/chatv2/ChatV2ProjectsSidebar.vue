@@ -4,7 +4,7 @@ import { useClaudeCodeHistory } from '~/composables/useClaudeCodeHistory'
 const emit = defineEmits<{
   (e: 'sessionSelected', payload: { projectName: string; sessionId: string; sessionSummary: string; projectDisplayName: string }): void
   (e: 'projectSelected', payload: { projectName: string; projectDisplayName: string }): void
-  (e: 'newChat'): void
+  (e: 'newChat', payload?: { workingDir?: string; projectDisplayName?: string }): void
   (e: 'selectionCleared'): void
   (e: 'toggleCollapse'): void
   (e: 'sessionRenamed', payload: { projectName: string; sessionId: string; newName: string }): void
@@ -35,6 +35,38 @@ const {
 
 // View mode: 'projects' or 'sessions'
 const viewMode = ref<'projects' | 'sessions'>('projects')
+
+// New folder input state
+const isChoosingFolder = ref(false)
+const folderInput = ref('')
+const folderInputRef = ref<HTMLInputElement | null>(null)
+
+// Manual refresh state
+const isRefreshing = ref(false)
+
+async function handleManualRefresh() {
+  if (isRefreshing.value) return
+  isRefreshing.value = true
+  
+  try {
+    if (viewMode.value === 'projects') {
+      await fetchProjects()
+    } else if (viewMode.value === 'sessions' && selectedProject.value) {
+      await fetchSessions(selectedProject.value.name)
+    }
+    // Add small delay to show feedback
+    await new Promise(resolve => setTimeout(resolve, 500))
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
+// Watch for session created event from SDK
+watch(() => props.currentSessionId, (newId) => {
+  if (newId && selectedProject.value) {
+    viewMode.value = 'sessions'
+  }
+})
 
 // Load projects on mount
 onMounted(async () => {
@@ -76,6 +108,44 @@ function goBackToProjects() {
   viewMode.value = 'projects'
   clearSelection()
   emit('selectionCleared')
+}
+
+// Handle New Chat click
+function handleNewChat() {
+  if (viewMode.value === 'sessions' && selectedProject.value) {
+    emit('newChat', { 
+      workingDir: selectedProject.value.path,
+      projectDisplayName: selectedProject.value.displayName
+    })
+  } else {
+    // Expand sidebar if collapsed so the user can see the folder input
+    if (props.collapsed) {
+      emit('toggleCollapse')
+    }
+    isChoosingFolder.value = true
+    nextTick(() => {
+      folderInputRef.value?.focus()
+    })
+  }
+}
+
+// Confirm folder selection
+function confirmFolder() {
+  if (folderInput.value.trim()) {
+    emit('newChat', { workingDir: folderInput.value.trim() })
+    isChoosingFolder.value = false
+    folderInput.value = ''
+  } else {
+    // Start generic chat if empty
+    emit('newChat')
+    isChoosingFolder.value = false
+  }
+}
+
+// Cancel folder selection
+function cancelFolderSelection() {
+  isChoosingFolder.value = false
+  folderInput.value = ''
 }
 
 // Format relative time
@@ -217,16 +287,62 @@ function confirmDelete() {
 
     <!-- Sidebar Content -->
     <template v-if="!collapsed">
-      <!-- New Chat Button -->
+      <!-- New Chat Button & Folder Input -->
       <div class="shrink-0 p-2 border-b" style="border-color: var(--border-subtle);">
-        <button
-          class="w-full px-3 py-2 rounded-lg text-[12px] font-medium hover-bg transition-all flex items-center justify-center gap-2"
-          style="background: var(--accent); color: white;"
-          @click="emit('newChat')"
-        >
-          <UIcon name="i-lucide-plus" class="size-3.5" />
-          New Chat
-        </button>
+        <div v-if="!isChoosingFolder" class="flex items-center gap-1.5">
+          <button
+            class="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium hover-bg transition-all flex items-center justify-center gap-2"
+            style="background: var(--accent); color: white;"
+            @click="handleNewChat"
+          >
+            <UIcon name="i-lucide-plus" class="size-3.5" />
+            {{ viewMode === 'sessions' ? 'New Chat in this folder' : 'New Chat' }}
+          </button>
+          <button
+            class="p-2 rounded-lg transition-all hover-bg flex items-center justify-center"
+            style="background: var(--surface-raised); color: var(--text-secondary);"
+            :title="viewMode === 'projects' ? 'Refresh projects' : 'Refresh sessions'"
+            :disabled="isRefreshing"
+            @click="handleManualRefresh"
+          >
+            <UIcon 
+              name="i-lucide-refresh-cw" 
+              class="size-4" 
+              :class="{ 'animate-spin': isRefreshing }"
+            />
+          </button>
+        </div>
+
+        <!-- Folder input for starting new chat in specific dir -->
+        <div v-else class="space-y-2">
+          <div class="flex items-center gap-2">
+            <input
+              ref="folderInputRef"
+              v-model="folderInput"
+              class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg text-[12px] outline-none"
+              style="background: var(--surface-raised); border: 1px solid var(--accent); color: var(--text-primary);"
+              placeholder="Enter folder path..."
+              @keyup.enter="confirmFolder"
+              @keyup.escape="cancelFolderSelection"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              class="flex-1 py-1 rounded text-[11px] font-medium transition-all"
+              style="background: var(--accent); color: white;"
+              @click="confirmFolder"
+            >
+              Start
+            </button>
+            <button
+              class="flex-1 py-1 rounded text-[11px] font-medium transition-all"
+              style="background: var(--surface-raised); color: var(--text-secondary);"
+              @click="cancelFolderSelection"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Projects List -->
@@ -404,7 +520,7 @@ function confirmDelete() {
           class="p-2 rounded-lg transition-all"
           style="background: var(--accent);"
           title="New Chat"
-          @click="emit('newChat')"
+          @click="handleNewChat"
         >
           <UIcon name="i-lucide-plus" class="size-4" style="color: white;" />
         </button>
@@ -422,30 +538,37 @@ function confirmDelete() {
     <Teleport to="body">
       <div
         v-if="showDeleteModal"
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]"
         @click.self="showDeleteModal = false"
       >
-        <div class="w-[400px] p-4 rounded-xl shadow-xl" style="background: var(--surface);">
-          <h3 class="text-[14px] font-semibold mb-2" style="color: var(--text-primary);">
-            Delete Session
-          </h3>
-          <p class="text-[12px] mb-4" style="color: var(--text-secondary);">
-            Are you sure you want to delete "{{ truncate(deleteSessionName, 40) }}"? This action cannot be undone.
+        <div class="w-[400px] p-6 rounded-2xl shadow-2xl border border-[var(--border-subtle)]" style="background: var(--surface); opacity: 1; position: relative; z-index: 101;">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="p-2 rounded-full bg-red-500/10">
+              <UIcon name="i-lucide-alert-triangle" class="size-5 text-red-500" />
+            </div>
+            <h3 class="text-[16px] font-bold" style="color: var(--text-primary);">
+              Delete Session
+            </h3>
+          </div>
+          
+          <p class="text-[13px] leading-relaxed mb-6" style="color: var(--text-secondary);">
+            Are you sure you want to delete <span class="font-medium text-[var(--text-primary)]">"{{ truncate(deleteSessionName, 60) }}"</span>? This action cannot be undone and all messages will be permanently lost.
           </p>
-          <div class="flex items-center justify-end gap-2">
+          
+          <div class="flex items-center justify-end gap-3">
             <button
-              class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
+              class="px-4 py-2 rounded-xl text-[13px] font-semibold transition-all hover:bg-[var(--surface-hover)]"
               style="background: var(--surface-raised); color: var(--text-secondary);"
               @click="showDeleteModal = false"
             >
               Cancel
             </button>
             <button
-              class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
-              style="background: var(--error, #ef4444); color: white;"
+              class="px-4 py-2 rounded-xl text-[13px] font-semibold transition-all hover:opacity-90 active:scale-95"
+              style="background: #ef4444; color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);"
               @click="confirmDelete"
             >
-              Delete
+              Delete Session
             </button>
           </div>
         </div>

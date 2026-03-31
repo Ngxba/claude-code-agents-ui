@@ -35,6 +35,7 @@ const {
 } = useChatV2Handler()
 
 // Claude Code history
+const history = useClaudeCodeHistory()
 const {
   messages: claudeCodeMessages,
   isLoadingMessages: isLoadingClaudeCodeMessages,
@@ -42,7 +43,7 @@ const {
   fetchMessages: fetchClaudeCodeMessages,
   renameSession,
   deleteSession
-} = useClaudeCodeHistory()
+} = history
 
 // Session list
 const sessions = ref<any[]>([])
@@ -55,8 +56,21 @@ const sidebarCollapsed = ref(false)
 const isCreatingSession = ref(false)
 const isInputFocused = ref(false)
 
+// Track the working directory for the current session (defaults to prop)
+const localWorkingDir = ref(props.executionOptions.workingDir || '')
+
+// Watch prop changes and update local state if not in a session
+watch(() => props.executionOptions.workingDir, (newDir) => {
+  if (!currentSessionId.value && newDir) {
+    localWorkingDir.value = newDir
+  }
+})
+
 // View mode: 'live' (new chat) or 'history' (viewing Claude Code history)
 const viewMode = ref<'live' | 'history'>('live')
+
+// Track if we've explicitly started a "New Chat" session
+const isLiveChat = ref(false)
 
 // Track if we're continuing a history session (showing history + new messages)
 const isContinuingHistory = ref(false)
@@ -137,6 +151,13 @@ function handleClaudeCodeProjectSelected(payload: { projectName: string; project
   urlSessionId.value = null
   currentSessionSummary.value = ''
   currentProjectDisplayName.value = payload.projectDisplayName
+  
+  // Ensure we are in live view mode but haven't started a chat yet
+  viewMode.value = 'live'
+  isLiveChat.value = false
+  
+  // Clear any history selection in shared state
+  history.selectedSession.value = null
 }
 
 // Utility: delay for minimum loading time
@@ -145,6 +166,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 // Handle Claude Code history session selection (no URL navigation)
 async function handleClaudeCodeSessionSelected(payload: { projectName: string; sessionId: string; sessionSummary: string; projectDisplayName: string }) {
   viewMode.value = 'history'
+  isLiveChat.value = false
   urlProjectName.value = payload.projectName
   urlSessionId.value = payload.sessionId
   currentSessionSummary.value = payload.sessionSummary
@@ -174,6 +196,7 @@ async function handleClaudeCodeSessionSelected(payload: { projectName: string; s
 // Handle selection cleared (back to projects list)
 function handleSelectionCleared() {
   viewMode.value = 'live'
+  isLiveChat.value = false
   urlProjectName.value = null
   urlSessionId.value = null
   currentSessionSummary.value = ''
@@ -184,20 +207,108 @@ function handleSelectionCleared() {
 // Handle new chat - switch to live mode without affecting sidebar
 // Note: We don't pre-create a session anymore. The SDK will create the session
 // when the first message is sent, and we'll get the session ID via session_created event.
-function handleNewChat() {
+function handleNewChat(payload?: { workingDir?: string; projectDisplayName?: string }) {
   viewMode.value = 'live'
+  isLiveChat.value = true
   urlProjectName.value = null
   urlSessionId.value = null
   currentSessionSummary.value = ''
-  currentProjectDisplayName.value = ''
+  currentProjectDisplayName.value = payload?.projectDisplayName || ''
   isContinuingHistory.value = false
   // Clear the current session so the user can start fresh
   sessionStore.setActiveSession(null)
+  
+  // Clear history selection
+  history.selectedSession.value = null
+  // If no working directory, also clear project selection
+  if (!payload?.workingDir) {
+    history.selectedProject.value = null
+  }
+
+  // If a working directory was provided, update the local working dir
+  if (payload?.workingDir) {
+    localWorkingDir.value = payload.workingDir
+  } else {
+    // Reset to prop's default if not provided
+    localWorkingDir.value = props.executionOptions.workingDir || ''
+  }
 }
 
 
+// Watch for session created event from SDK
+watch(currentSessionId, async (newId, oldId) => {
+  if (newId && (!oldId || oldId.startsWith('new-session-'))) {
+    console.log('[ChatV2] New session created, refreshing history:', newId)
+    
+    // Refresh the projects list first
+    await history.fetchProjects()
+    
+    // If we have a working directory, try to find the matching project
+    if (localWorkingDir.value) {
+      const projects = history.projects.value
+      // Normalize path for matching (remove trailing slash)
+      const normalizedDir = localWorkingDir.value.replace(/\/$/, '')
+      const matchingProject = projects.find(p => p.path.replace(/\/$/, '') === normalizedDir)
+      
+      if (matchingProject) {
+        // Switch view to sessions for this project in the sidebar
+        urlProjectName.value = matchingProject.name
+        currentProjectDisplayName.value = matchingProject.displayName
+        
+        // Update shared state for sidebar to know which project is selected
+        history.selectedProject.value = matchingProject
+        
+        // Refresh sessions list for this project to include the new one
+        await history.fetchSessions(matchingProject.name)
+        
+        // Mark this session as selected in history UI
+        urlSessionId.value = newId
+        
+        // Find the newly created session in the list to get its summary
+        const newSession = history.sessions.value.find(s => s.id === newId)
+        if (newSession) {
+          currentSessionSummary.value = newSession.summary
+          history.selectedSession.value = newSession
+        }
+      } else {
+        // If not matching any project yet, we could still refresh projects
+        // in case a new project folder was created by the SDK
+        await history.fetchProjects()
+      }
+    }
+  }
+})
+
+// Debounce timer for history refreshes during live chat
+let refreshTimer: NodeJS.Timeout | null = null
+const REFRESH_DEBOUNCE_MS = 2000
+
+// Refresh history sessions list if in a project
+async function refreshHistorySessions() {
+  if (viewMode.value === 'live' && urlProjectName.value) {
+    await history.fetchSessions(urlProjectName.value)
+    
+    // Also update current session info from history
+    if (currentSessionId.value) {
+      const newSession = history.sessions.value.find(s => s.id === currentSessionId.value)
+      if (newSession) {
+        currentSessionSummary.value = newSession.summary
+        history.selectedSession.value = newSession
+      }
+    }
+  }
+}
+
 // Auto-scroll on new messages (when in live mode or continuing history)
 watch([displayMessages, streamingText], () => {
+  // Trigger history refresh (debounced)
+  if (viewMode.value === 'live' && urlProjectName.value) {
+    if (refreshTimer) clearTimeout(refreshTimer)
+    refreshTimer = setTimeout(() => {
+      refreshHistorySessions()
+    }, REFRESH_DEBOUNCE_MS)
+  }
+
   nextTick(() => {
     if (messagesContainerRef.value && (viewMode.value === 'live' || isContinuingHistory.value)) {
       messagesContainerRef.value.scrollTop = messagesContainerRef.value.scrollHeight
@@ -291,7 +402,7 @@ async function createSession() {
     const data = await $fetch<any>('/api/chat-ws/sessions', {
       method: 'POST',
       body: {
-        workingDir: props.executionOptions.workingDir,
+        workingDir: localWorkingDir.value,
       },
     })
 
@@ -333,7 +444,7 @@ async function handleSendMessage(images: string[] = []) {
     // Send the message with the history session ID to resume that SDK session
     const success = sendChat(inputText.value, {
       sessionId: urlSessionId.value || undefined, // SDK session ID from history
-      workingDir: props.executionOptions.workingDir,
+      workingDir: localWorkingDir.value || undefined,
       permissionMode: selectedPermissionMode.value,
       model: selectedModel.value,
       thinkingEnabled: thinkingEnabled.value,
@@ -351,7 +462,7 @@ async function handleSendMessage(images: string[] = []) {
   // The backend will respond with session_created event containing the real session ID
   const success = sendChat(inputText.value, {
     sessionId: currentSessionId.value || undefined, // Will generate temp ID if undefined
-    workingDir: props.executionOptions.workingDir,
+    workingDir: localWorkingDir.value || undefined,
     permissionMode: selectedPermissionMode.value,
     model: selectedModel.value,
     thinkingEnabled: thinkingEnabled.value,
@@ -510,6 +621,17 @@ function handleOpenFile(filePath: string) {
                 <UIcon name="i-lucide-loader-2" class="size-3 animate-spin" />
                 Generating...
               </div>
+
+              <!-- Project/Folder indicator in live mode -->
+              <div
+                v-if="localWorkingDir"
+                class="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium max-w-[200px]"
+                style="background: var(--surface-raised); color: var(--text-secondary);"
+                :title="localWorkingDir"
+              >
+                <UIcon :name="currentProjectDisplayName ? 'i-lucide-folder-root' : 'i-lucide-folder'" class="size-3 shrink-0" />
+                <span class="truncate">{{ currentProjectDisplayName || localWorkingDir.split('/').filter(Boolean).pop() || localWorkingDir }}</span>
+              </div>
             </div>
           </template>
         </div>
@@ -582,6 +704,34 @@ function handleOpenFile(filePath: string) {
           </div>
         </div>
 
+        <!-- Welcome / Select State -->
+        <div v-else-if="viewMode === 'live' && !isLiveChat && !currentSessionId" class="flex items-center justify-center h-full text-center">
+          <div class="max-w-md px-6">
+            <div class="size-20 mx-auto mb-6 rounded-3xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(229, 169, 62, 0.1) 0%, rgba(229, 169, 62, 0.05) 100%); border: 1px solid rgba(229, 169, 62, 0.1);">
+              <UIcon :name="urlProjectName ? 'i-lucide-folder-root' : 'i-lucide-terminal'" class="size-10" style="color: var(--accent);" />
+            </div>
+            <h2 class="text-[20px] font-semibold mb-3" style="color: var(--text-primary); font-family: var(--font-sans);">
+              {{ urlProjectName ? currentProjectDisplayName : 'Claude Code CLI' }}
+            </h2>
+            <p class="text-[14px] leading-relaxed mb-8" style="color: var(--text-secondary);">
+              {{ urlProjectName ? 'Select a session from this folder or start a new conversation below.' : 'Select an existing session from the history or start a new conversation to begin.' }}
+            </p>
+            <div class="flex flex-col gap-3">
+              <button
+                class="w-full py-2.5 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+                style="background: var(--accent); color: white;"
+                @click="handleNewChat({ workingDir: localWorkingDir })"
+              >
+                <UIcon name="i-lucide-plus" class="size-4" />
+                Start a New Chat {{ urlProjectName ? 'in Folder' : '' }}
+              </button>
+              <p v-if="!urlProjectName" class="text-[11px]" style="color: var(--text-tertiary);">
+                Browse your project history in the left sidebar
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Empty state -->
         <div v-else-if="displayMessages.length === 0 && !isStreaming && !isLoadingClaudeCodeMessages && !isLoadingHistoryWithDelay" class="flex items-center justify-center h-full">
           <div class="text-center max-w-md">
@@ -628,7 +778,11 @@ function handleOpenFile(filePath: string) {
       </div>
 
       <!-- Input -->
-      <div class="shrink-0 border-t relative" style="border-color: var(--border-subtle);">
+      <div 
+        v-if="isLiveChat || currentSessionId || (viewMode === 'history' && urlSessionId)"
+        class="shrink-0 border-t relative" 
+        style="border-color: var(--border-subtle);"
+      >
 
 
         <!-- Chat Input - Works in both modes -->
