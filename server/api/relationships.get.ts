@@ -120,14 +120,27 @@ async function loadMcpServers(workingDir?: string) {
   return servers
 }
 
+async function loadGithubSkillSlugs(): Promise<string[]> {
+  const path = resolveClaudePath('github', 'imports.json')
+  if (!existsSync(path)) return []
+  try {
+    const raw = await readFile(path, 'utf-8')
+    const registry = JSON.parse(raw) as { imports: { selectedSkills: string[] }[] }
+    return registry.imports.flatMap(i => i.selectedSkills)
+  } catch {
+    return []
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const { workingDir } = getQuery(event) as { workingDir?: string }
-  const [agents, commands, skills, plugins, mcpServers] = await Promise.all([
+  const [agents, commands, skills, plugins, mcpServers, githubSkillSlugs] = await Promise.all([
     loadAgents(),
     loadCommands(resolveClaudePath('commands'), ''),
     loadSkills(),
     loadPlugins(),
     loadMcpServers(workingDir),
+    loadGithubSkillSlugs(),
   ])
-  return extractRelationships(agents, commands, skills, plugins, mcpServers)
+  return extractRelationships(agents, commands, skills, plugins, mcpServers, githubSkillSlugs)
 })

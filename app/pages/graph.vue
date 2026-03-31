@@ -61,11 +61,11 @@ const connectedNodeIds = computed(() => {
 // --- Build columns dynamically ---
 const columns = computed(() => {
   const cols: { type: string; items: any[] }[] = []
-  if (commands.value.length > 0) cols.push({ type: 'command', items: commands.value })
-  if (skills.value.length > 0) cols.push({ type: 'skill', items: skills.value })
   if (agents.value.length > 0) cols.push({ type: 'agent', items: agents.value })
+  if (skills.value.length > 0) cols.push({ type: 'skill', items: skills.value })
   if (plugins.value.length > 0) cols.push({ type: 'plugin', items: plugins.value })
   if (mcpServers.value.length > 0) cols.push({ type: 'mcp', items: mcpServers.value })
+  if (commands.value.length > 0) cols.push({ type: 'command', items: commands.value })
   return cols
 })
 
