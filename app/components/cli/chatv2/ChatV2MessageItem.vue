@@ -231,7 +231,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
     <!-- Thinking Block - Compact inline style -->
     <template v-else-if="message.kind === 'thinking'">
       <button
-        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] transition-all"
+        class="inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-1 rounded-lg text-[11px] md:text-[12px] transition-all"
         style="background: var(--surface-raised); color: var(--text-secondary);"
         @click="showThinking = !showThinking"
       >
@@ -245,7 +245,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
 
       <div
         v-if="showThinking"
-        class="mt-2 p-3 rounded-lg text-[12px] whitespace-pre-wrap"
+        class="mt-2 p-2 md:p-3 rounded-lg text-[11px] md:text-[12px] whitespace-pre-wrap"
         style="background: var(--surface-raised); color: var(--text-tertiary); border-left: 2px solid #8b5cf6;"
       >
         {{ message.thinking || message.content }}
@@ -262,14 +262,14 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
         >
           <!-- Terminal icon -->
           <div
-            class="absolute top-2 left-2 size-4 rounded flex items-center justify-center"
+            class="absolute top-2 left-2 size-3.5 md:size-4 rounded flex items-center justify-center"
             style="background: #3b82f6;"
           >
-            <UIcon name="i-lucide-terminal" class="size-2.5" style="color: white;" />
+            <UIcon name="i-lucide-terminal" class="size-2 md:size-2.5" style="color: white;" />
           </div>
 
           <!-- Command -->
-          <div class="px-4 py-3 pl-9 font-mono text-[12px]" style="color: #9ece6a;">
+          <div class="px-3 md:px-4 py-2 md:py-3 pl-8 md:pl-9 font-mono text-[11px] md:text-[12px]" style="color: #9ece6a;">
             <span style="color: #7aa2f7;">$</span> {{ bashCommand }}
           </div>
         </div>
@@ -507,43 +507,43 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
     <!-- Permission Request -->
     <template v-else-if="message.kind === 'permission_request' && message.permissionRequest">
       <div
-        class="px-4 py-3 rounded-xl border-2"
+        class="px-3 py-2 md:px-4 md:py-3 rounded-xl border-2"
         style="background: rgba(229, 169, 62, 0.05); border-color: var(--accent);"
       >
         <div class="flex items-center gap-2 mb-2">
-          <UIcon name="i-lucide-shield-question" class="size-4" style="color: var(--accent);" />
-          <span class="text-[12px] font-semibold" style="color: var(--text-primary);">
+          <UIcon name="i-lucide-shield-question" class="size-3.5 md:size-4" style="color: var(--accent);" />
+          <span class="text-[11px] md:text-[12px] font-semibold" style="color: var(--text-primary);">
             Permission Required
           </span>
         </div>
 
-        <p class="text-[12px] mb-3" style="color: var(--text-secondary);">
+        <p class="text-[11px] md:text-[12px] mb-3" style="color: var(--text-secondary);">
           {{ message.permissionRequest.toolName }} wants to perform an action:
         </p>
 
         <pre
           v-if="message.permissionRequest.toolInput"
-          class="text-[11px] p-2 rounded-lg mb-3 overflow-auto max-h-24 font-mono"
+          class="text-[10px] md:text-[11px] p-2 rounded-lg mb-3 overflow-auto max-h-24 font-mono"
           style="background: var(--surface-raised); color: var(--text-tertiary);"
         >{{ JSON.stringify(message.permissionRequest.toolInput, null, 2) }}</pre>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <button
-            class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-90"
+            class="px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg text-[11px] md:text-[12px] font-medium transition-all hover:opacity-90"
             style="background: var(--accent); color: white;"
             @click="handlePermissionAllow(false)"
           >
             Allow
           </button>
           <button
-            class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-90"
+            class="px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg text-[11px] md:text-[12px] font-medium transition-all hover:opacity-90"
             style="background: var(--surface-raised); color: var(--text-secondary);"
             @click="handlePermissionAllow(true)"
           >
             Allow & Remember
           </button>
           <button
-            class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-90"
+            class="px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg text-[11px] md:text-[12px] font-medium transition-all hover:opacity-90"
             style="background: rgba(239, 68, 68, 0.1); color: #ef4444;"
             @click="handlePermissionDeny"
           >

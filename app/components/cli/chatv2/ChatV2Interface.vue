@@ -56,6 +56,33 @@ const sidebarCollapsed = ref(false)
 const isCreatingSession = ref(false)
 const isInputFocused = ref(false)
 
+// Responsive sidebar width based on window size
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200)
+const isSmallScreen = computed(() => windowWidth.value < 1024)
+const isMobileScreen = computed(() => windowWidth.value < 768)
+
+function updateWidth() {
+  windowWidth.value = window.innerWidth
+}
+
+onMounted(() => {
+  window.addEventListener('resize', updateWidth)
+  // Auto-collapse sidebar on small laptop screens
+  if (windowWidth.value < 1100) {
+    sidebarCollapsed.value = true
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateWidth)
+})
+
+const sidebarWidth = computed(() => {
+  if (sidebarCollapsed.value) return '56px'
+  if (windowWidth.value < 1280) return '260px' // Smaller sidebar for laptops
+  return '320px' // Standard width for desktops
+})
+
 // Track the working directory for the current session (defaults to prop)
 const localWorkingDir = ref(props.executionOptions.workingDir || '')
 
@@ -548,7 +575,7 @@ function handleOpenFile(filePath: string) {
     <div
       class="shrink-0 flex flex-col border-r transition-all duration-300"
       :style="{
-        width: sidebarCollapsed ? '56px' : '320px',
+        width: sidebarWidth,
         borderColor: 'var(--border-subtle)',
         background: 'var(--surface)',
       }"
@@ -569,21 +596,21 @@ function handleOpenFile(filePath: string) {
     </div>
 
     <!-- Right Panel - Chat Interface -->
-    <div class="flex-1 flex flex-col min-h-0">
+    <div class="flex-1 flex flex-col min-h-0 min-w-0">
       <!-- Header - Fixed height for consistent alignment -->
-      <div class="shrink-0 flex items-center justify-between px-4 h-14 border-b" style="border-color: var(--border-subtle);">
+      <div class="shrink-0 flex items-center justify-between px-3 md:px-4 h-14 border-b" style="border-color: var(--border-subtle);">
         <div class="flex items-center gap-2 min-w-0 flex-1">
           <!-- History Mode - Session Info -->
           <template v-if="viewMode === 'history'">
             <div class="flex flex-col justify-center min-w-0 py-1.5">
               <!-- Session Name -->
-              <span class="text-[12px] font-medium truncate max-w-[500px] leading-tight" style="color: var(--text-primary);">
+              <span class="text-[12px] md:text-[13px] font-medium truncate max-w-[300px] md:max-w-[500px] leading-tight" style="color: var(--text-primary);">
                 {{ currentSessionSummary || 'Session' }}
               </span>
               <!-- Folder Name -->
               <span
                 v-if="currentProjectDisplayName"
-                class="text-[10px] font-mono truncate leading-tight mt-0.5"
+                class="text-[9px] md:text-[10px] font-mono truncate leading-tight mt-0.5"
                 style="color: var(--text-tertiary);"
               >
                 {{ currentProjectDisplayName }}
@@ -593,39 +620,41 @@ function handleOpenFile(filePath: string) {
 
           <!-- Live Mode Indicators -->
           <template v-else>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5 md:gap-2">
               <!-- Connection Status -->
               <div
                 v-if="isConnected"
-                class="flex items-center gap-2 px-2 py-1 rounded text-[11px] font-medium"
+                class="flex items-center gap-1.5 md:gap-2 px-1.5 md:px-2 py-1 rounded text-[10px] md:text-[11px] font-medium"
                 style="background: rgba(13, 188, 121, 0.1); color: #0dbc79;"
+                :title="isSmallScreen ? 'Connected' : ''"
               >
                 <div class="size-1.5 rounded-full animate-pulse" style="background: #0dbc79;" />
-                Connected
+                <span v-if="!isSmallScreen">Connected</span>
               </div>
               <div
                 v-else
-                class="flex items-center gap-2 px-2 py-1 rounded text-[11px] font-medium"
+                class="flex items-center gap-1.5 md:gap-2 px-1.5 md:px-2 py-1 rounded text-[10px] md:text-[11px] font-medium"
                 style="background: var(--surface-raised); color: var(--text-disabled);"
+                :title="isSmallScreen ? 'Disconnected' : ''"
               >
                 <div class="size-1.5 rounded-full" style="background: var(--text-disabled);" />
-                Disconnected
+                <span v-if="!isSmallScreen">Disconnected</span>
               </div>
 
               <!-- Streaming indicator -->
               <div
                 v-if="isStreaming"
-                class="flex items-center gap-2 px-2 py-1 rounded text-[11px] font-medium"
+                class="flex items-center gap-1.5 md:gap-2 px-1.5 md:px-2 py-1 rounded text-[10px] md:text-[11px] font-medium"
                 style="background: rgba(229, 169, 62, 0.1); color: var(--accent);"
               >
                 <UIcon name="i-lucide-loader-2" class="size-3 animate-spin" />
-                Generating...
+                <span v-if="!isSmallScreen">Generating...</span>
               </div>
 
               <!-- Project/Folder indicator in live mode -->
               <div
                 v-if="localWorkingDir"
-                class="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium max-w-[200px]"
+                class="flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-1 rounded text-[10px] md:text-[11px] font-medium max-w-[120px] md:max-w-[200px]"
                 style="background: var(--surface-raised); color: var(--text-secondary);"
                 :title="localWorkingDir"
               >
@@ -637,27 +666,28 @@ function handleOpenFile(filePath: string) {
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-          <!-- Model Selector (only when viewing a specific chat session) -->
+          <!-- Model Selector -->
           <ChatV2ModelSelector
-            v-if="(viewMode === 'history' && urlSessionId) || (viewMode === 'live' && currentSessionId)"
+            v-if="(viewMode === 'history' && urlSessionId) || (viewMode === 'live' && isLiveChat)"
             v-model="selectedModel"
             :options="MODEL_OPTIONS_CHAT"
+            class="scale-90 md:scale-100 origin-right"
           />
 
           <!-- Thinking Mode Toggle (only when viewing a specific chat session) -->
           <button
             v-if="(viewMode === 'history' && urlSessionId) || (viewMode === 'live' && currentSessionId)"
-            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+            class="flex items-center gap-1 px-1.5 md:px-2.5 py-1.5 rounded-lg text-[10px] md:text-[11px] font-medium transition-all shrink-0"
             :style="{
               background: thinkingEnabled ? 'rgba(139, 92, 246, 0.1)' : 'var(--surface-raised)',
               color: thinkingEnabled ? '#8b5cf6' : 'var(--text-secondary)',
               border: '1px solid var(--border-subtle)',
             }"
             @click="thinkingEnabled = !thinkingEnabled"
-            title="Enable deeper reasoning with thinking mode"
+            :title="thinkingEnabled ? 'Thinking mode: ON' : 'Thinking mode: OFF'"
           >
-            <UIcon name="i-lucide-brain" class="size-3" />
-            <span v-if="thinkingEnabled">On</span>
+            <UIcon name="i-lucide-brain" class="size-3 md:size-3.5" />
+            <span v-if="thinkingEnabled || !isSmallScreen">{{ thinkingEnabled ? 'On' : 'Off' }}</span>
           </button>
 
           <!-- Permission Mode Selector (only when viewing a specific chat session) -->
@@ -684,7 +714,7 @@ function handleOpenFile(filePath: string) {
       <!-- Messages -->
       <div
         ref="messagesContainerRef"
-        class="flex-1 overflow-y-auto p-4 space-y-4"
+        class="flex-1 overflow-y-auto px-2 py-3 md:p-4 space-y-4"
         style="background: var(--surface-base);"
         @scroll="handleMessagesScroll"
       >

@@ -70,29 +70,29 @@ function handleOpenFile(filePath: string) {
     >
       <!-- User Message Group -->
       <div v-if="group.role === 'user'" class="flex justify-end">
-        <div class="flex items-start gap-3 max-w-[85%] min-w-0">
+        <div class="flex items-start gap-2 md:gap-3 max-w-[95%] md:max-w-[85%] min-w-0">
           <div class="flex flex-col items-end gap-1.5 min-w-0">
             <!-- All user messages in this group -->
             <div
               v-for="(msg, idx) in group.messages"
               :key="msg.id"
-              class="px-4 py-2.5"
+              class="px-3 md:px-4 py-2 md:py-2.5"
               :class="idx === 0 ? 'rounded-2xl rounded-tr-md' : 'rounded-2xl rounded-r-md'"
               style="background: var(--accent); color: white;"
             >
               <div v-if="msg.images && msg.images.length > 0" class="flex flex-wrap gap-2 mb-2">
-                <img v-for="(img, i) in msg.images" :key="i" :src="img" class="max-w-[200px] max-h-[200px] rounded-lg object-contain bg-white/10" />
+                <img v-for="(img, i) in msg.images" :key="i" :src="img" class="max-w-[160px] md:max-w-[200px] max-h-[160px] md:max-h-[200px] rounded-lg object-contain bg-white/10" />
               </div>
-              <div v-if="msg.content" class="text-[13px] whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{{ msg.content }}</div>
+              <div v-if="msg.content" class="text-[12px] md:text-[13px] whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{{ msg.content }}</div>
             </div>
             <!-- Single timestamp for the group -->
-            <div class="text-[10px] px-1" style="color: var(--text-tertiary);">
+            <div class="text-[9px] md:text-[10px] px-1" style="color: var(--text-tertiary);">
               {{ new Date(group.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
             </div>
           </div>
           <!-- User Avatar -->
           <div
-            class="size-8 rounded-full shrink-0 flex items-center justify-center text-[12px] font-semibold"
+            class="size-7 md:size-8 rounded-full shrink-0 flex items-center justify-center text-[11px] md:text-[12px] font-semibold"
             style="background: var(--accent); color: white;"
           >
             U
@@ -101,22 +101,22 @@ function handleOpenFile(filePath: string) {
       </div>
 
       <!-- Assistant Message Group -->
-      <div v-else class="flex items-start gap-3">
+      <div v-else class="flex items-start gap-2 md:gap-3">
         <!-- Claude Avatar -->
         <div
-          class="size-8 rounded-full shrink-0 flex items-center justify-center"
+          class="size-7 md:size-8 rounded-full shrink-0 flex items-center justify-center"
           style="background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);"
         >
-          <svg class="size-4" viewBox="0 0 24 24" fill="white">
+          <svg class="size-3.5 md:size-4" viewBox="0 0 24 24" fill="white">
             <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
           </svg>
         </div>
 
         <div class="flex-1 min-w-0">
           <!-- Claude Header -->
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-[13px] font-semibold" style="color: var(--text-primary);">Claude</span>
-            <span class="text-[10px]" style="color: var(--text-tertiary);">
+          <div class="flex items-center gap-2 mb-1.5 md:mb-2">
+            <span class="text-[12px] md:text-[13px] font-semibold" style="color: var(--text-primary);">Claude</span>
+            <span class="text-[9px] md:text-[10px]" style="color: var(--text-tertiary);">
               {{ new Date(group.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
             </span>
           </div>
