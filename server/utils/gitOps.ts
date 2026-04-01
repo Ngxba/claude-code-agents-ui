@@ -23,9 +23,9 @@ export async function ensureGit(): Promise<void> {
   }
 }
 
-export async function gitClone(repoUrl: string, destPath: string): Promise<void> {
+export async function gitClone(repoUrl: string, destPath: string, allowExisting = false): Promise<void> {
   await ensureGit()
-  if (existsSync(destPath)) {
+  if (existsSync(destPath) && !allowExisting) {
     throw createError({
       statusCode: 409,
       data: { error: 'already_exists', message: 'This repository is already imported' },

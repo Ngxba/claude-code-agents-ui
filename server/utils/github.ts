@@ -1,6 +1,6 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, readdir, lstat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { resolveClaudePath } from './claudeDir'
 import { parseFrontmatter } from './frontmatter'
 import type { SkillFrontmatter, GithubImport, GithubImportsRegistry } from '~/types'
@@ -34,13 +34,6 @@ export function parseGithubUrl(url: string): ParsedGithubUrl | null {
   }
 }
 
-interface GithubTreeEntry {
-  path: string
-  type: 'blob' | 'tree'
-  sha: string
-  url: string
-}
-
 interface SkillsIndexEntry {
   slug: string
   name: string
@@ -55,100 +48,6 @@ interface SkillsIndexEntry {
 interface SkillsIndex {
   version: string
   skills: SkillsIndexEntry[]
-}
-
-export async function fetchRepoTree(owner: string, repo: string, branch: string): Promise<GithubTreeEntry[]> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'agents-ui',
-    },
-  })
-
-  if (response.status === 403) {
-    const resetHeader = response.headers.get('x-ratelimit-reset')
-    const resetIn = resetHeader ? Math.ceil((parseInt(resetHeader) * 1000 - Date.now()) / 60000) : '?'
-    throw createError({
-      statusCode: 429,
-      data: { error: 'rate_limited', message: `GitHub API rate limit reached. Try again in ${resetIn} minutes.` },
-    })
-  }
-
-  if (response.status === 404) {
-    throw createError({
-      statusCode: 404,
-      data: { error: 'not_found', message: 'Repository or branch not found' },
-    })
-  }
-
-  if (!response.ok) {
-    throw createError({
-      statusCode: response.status,
-      data: { error: 'github_error', message: `GitHub API error: ${response.statusText}` },
-    })
-  }
-
-  const data = await response.json() as { tree: GithubTreeEntry[] }
-  return data.tree
-}
-
-export async function fetchFileContent(owner: string, repo: string, branch: string, path: string): Promise<string> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'agents-ui',
-    },
-  })
-
-  if (response.status === 403) {
-    const resetHeader = response.headers.get('x-ratelimit-reset')
-    const resetIn = resetHeader ? Math.ceil((parseInt(resetHeader) * 1000 - Date.now()) / 60000) : '?'
-    throw createError({
-      statusCode: 429,
-      data: { error: 'rate_limited', message: `GitHub API rate limit reached. Try again in ${resetIn} minutes.` },
-    })
-  }
-
-  if (!response.ok) {
-    throw createError({ statusCode: response.status, message: `Failed to fetch ${path}` })
-  }
-
-  const data = await response.json() as { content: string; encoding: string }
-  if (data.encoding === 'base64') {
-    return Buffer.from(data.content, 'base64').toString('utf-8')
-  }
-  return data.content
-}
-
-export async function getDefaultBranch(owner: string, repo: string): Promise<string> {
-  const url = `https://api.github.com/repos/${owner}/${repo}`
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'agents-ui',
-    },
-  })
-
-  if (response.status === 403) {
-    const resetHeader = response.headers.get('x-ratelimit-reset')
-    const resetIn = resetHeader ? Math.ceil((parseInt(resetHeader) * 1000 - Date.now()) / 60000) : '?'
-    throw createError({
-      statusCode: 429,
-      data: { error: 'rate_limited', message: `GitHub API rate limit reached. Try again in ${resetIn} minutes.` },
-    })
-  }
-
-  if (!response.ok) {
-    throw createError({
-      statusCode: 404,
-      data: { error: 'not_found', message: 'Repository not found' },
-    })
-  }
-
-  const data = await response.json() as { default_branch: string }
-  return data.default_branch
 }
 
 interface DetectedSkill {
@@ -168,24 +67,38 @@ interface DetectedAgent {
   filePath: string
 }
 
-export async function detectSkills(
-  owner: string,
-  repo: string,
-  branch: string,
-  targetPath: string | null,
-  tree: GithubTreeEntry[]
+// ── Local scanning helpers (for cloned repos) ──────────────────────────
+
+async function walkDir(dir: string): Promise<string[]> {
+  const files: string[] = []
+  const items = await readdir(dir, { withFileTypes: true })
+  for (const item of items) {
+    const fullPath = join(dir, item.name)
+    if (item.isDirectory()) {
+      if (item.name === '.git' || item.name === 'node_modules') continue
+      files.push(...(await walkDir(fullPath)))
+    } else if (item.isFile() && item.name.endsWith('.md')) {
+      files.push(fullPath)
+    }
+  }
+  return files
+}
+
+export async function detectSkillsLocal(
+  baseDir: string,
+  targetPath: string | null
 ): Promise<{ skills: DetectedSkill[]; totalCount: number; detectionMethod: 'frontmatter' | 'skills-index' }> {
-  let skills: DetectedSkill[] = []
-  let totalCount = 0
+  const scanRoot = targetPath ? join(baseDir, targetPath) : baseDir
+  const skills: DetectedSkill[] = []
   let detectionMethod: 'frontmatter' | 'skills-index' = 'frontmatter'
 
-  // 1. Check for skills-index.json at repo root for skills
-  const indexEntry = tree.find(e => e.path === 'skills-index.json')
-  if (indexEntry) {
-    const content = await fetchFileContent(owner, repo, branch, 'skills-index.json')
+  // 1. Check for skills-index.json
+  const indexPath = join(baseDir, 'skills-index.json')
+  if (existsSync(indexPath)) {
     try {
+      const content = await readFile(indexPath, 'utf-8')
       const index = JSON.parse(content) as SkillsIndex
-      skills = index.skills.map(s => ({
+      let list = index.skills.map(s => ({
         slug: s.slug,
         name: s.name || s.slug,
         description: typeof s.description === 'string' ? s.description.replace(/^>\s*/, '') : '',
@@ -195,44 +108,31 @@ export async function detectSkills(
         hasSupporting: (s.files?.length || 0) > 1,
       }))
 
-      // Filter to target path if specified
       if (targetPath) {
-        skills = skills.filter(s => s.filePath.startsWith(targetPath))
+        list = list.filter(s => s.filePath.startsWith(targetPath))
       }
-      detectionMethod = 'skills-index'
-      return { skills, totalCount: skills.length, detectionMethod }
-    } catch {
-      // Fallback to frontmatter if index is invalid
-    }
+      return { skills: list, totalCount: list.length, detectionMethod: 'skills-index' }
+    } catch { }
   }
 
   // 2. Scan for SKILL.md files
-  const prefix = targetPath ? targetPath + '/' : ''
-  const skillFiles = tree.filter(e =>
-    e.type === 'blob'
-    && e.path.toLowerCase().endsWith('skill.md')
-    && (prefix ? e.path.startsWith(prefix) : true)
-  )
+  const allMdFiles = await walkDir(scanRoot)
+  const skillFiles = allMdFiles.filter(f => f.toLowerCase().endsWith('skill.md'))
 
-  totalCount = skillFiles.length
-
-  // Only scan first 50 to avoid rate limits
-  for (const file of skillFiles.slice(0, 50)) {
+  for (const file of skillFiles) {
     try {
-      const content = await fetchFileContent(owner, repo, branch, file.path)
+      const content = await readFile(file, 'utf-8')
       const { frontmatter } = parseFrontmatter<any>(content)
 
       if (frontmatter.name && frontmatter.description) {
-        const parts = file.path.split('/')
+        const relPath = relative(baseDir, file)
+        const parts = relPath.split('/')
         const parentDir = parts.at(-2)
         const slug = parentDir || frontmatter.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-        const dir = parts.slice(0, -1).join('/')
-        const hasSupporting = tree.some(e =>
-          e.type === 'blob'
-          && e.path.startsWith(dir + '/')
-          && e.path !== file.path
-        )
+        const dir = dirname(file)
+        const items = await readdir(dir)
+        const hasSupporting = items.length > 1
 
         const category = parts.length > 2 ? parts[parts.length - 3] || null : null
 
@@ -242,77 +142,54 @@ export async function detectSkills(
           description: frontmatter.description,
           category,
           tags: [],
-          filePath: file.path,
+          filePath: relPath,
           hasSupporting,
         })
       }
-    } catch (e: any) {
-      if (e.statusCode === 429) throw e // Propagate rate limit
-    }
+    } catch { }
   }
 
-  return { skills, totalCount, detectionMethod: 'frontmatter' }
+  return { skills, totalCount: skills.length, detectionMethod: 'frontmatter' }
 }
 
-export async function detectAgents(
-  owner: string,
-  repo: string,
-  branch: string,
-  targetPath: string | null,
-  tree: GithubTreeEntry[]
+export async function detectAgentsLocal(
+  baseDir: string,
+  targetPath: string | null
 ): Promise<{ agents: DetectedAgent[]; totalCount: number }> {
+  const scanRoot = targetPath ? join(baseDir, targetPath) : baseDir
   const agents: DetectedAgent[] = []
-  const prefix = targetPath ? targetPath + '/' : ''
   
-  // Scan for .md files (excluding SKILL.md and common docs)
-  const mdFiles = tree.filter(e =>
-    e.type === 'blob'
-    && e.path.endsWith('.md')
-    && !e.path.toLowerCase().endsWith('skill.md')
-    && (prefix ? e.path.startsWith(prefix) : true)
-    && !SKIP_FILENAMES.has(e.path.split('/').pop()!)
-  )
+  const allMdFiles = await walkDir(scanRoot)
+  const agentFiles = allMdFiles.filter(f => !f.toLowerCase().endsWith('skill.md'))
 
-  // Every markdown file that is not a SKILL.md or README is a potential agent
-  const totalCount = mdFiles.length
+  for (const file of agentFiles) {
+    const fileName = file.split('/').pop()!
+    if (SKIP_FILENAMES.has(fileName)) continue
 
-  // Prioritize agents/ folder
-  const prioritized = mdFiles.sort((a, b) => {
-    const aIsAgent = a.path.includes('agents/') || a.path.toLowerCase().includes('agent')
-    const bIsAgent = b.path.includes('agents/') || b.path.toLowerCase().includes('agent')
-    if (aIsAgent && !bIsAgent) return -1
-    if (!aIsAgent && bIsAgent) return 1
-    return 0
-  })
-
-  // Only scan first 50 to avoid rate limits
-  for (const file of prioritized.slice(0, 50)) {
     try {
-      const content = await fetchFileContent(owner, repo, branch, file.path)
+      const content = await readFile(file, 'utf-8')
       const { frontmatter } = parseFrontmatter<any>(content)
 
       if (frontmatter.name && frontmatter.description) {
-        const parts = file.path.split('/')
-        const fileName = parts.pop()!
+        const relPath = relative(baseDir, file)
+        const parts = relPath.split('/')
         let slug = fileName.replace(/\.md$/, '')
         
-        if (slug.toLowerCase() === 'agent' && parts.length > 0) {
-          slug = parts[parts.length - 1]!
+        if (slug.toLowerCase() === 'agent' && parts.length > 1) {
+          slug = parts[parts.length - 2]!
         }
 
         agents.push({
           slug,
           name: frontmatter.name,
           description: frontmatter.description,
-          filePath: file.path,
+          filePath: relPath,
         })
       }
-    } catch (e: any) {
-      if (e.statusCode === 429) throw e // Propagate rate limit
-    }
+    } catch { }
   }
 
-  return { agents, totalCount }
+  return { agents, totalCount: agents.length }
 }
 
 // ── Registry helpers ──────────────────────────────────

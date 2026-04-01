@@ -1,11 +1,13 @@
 import { existsSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { resolveClaudePath } from '../../utils/claudeDir'
 import { 
   parseGithubUrl, 
-  getDefaultBranch, 
-  fetchRepoTree, 
-  detectSkills 
+  detectSkillsLocal 
 } from '../../utils/github'
+import { gitClone } from '../../utils/gitOps'
 
 export default defineEventHandler(async (event) => {
   const { url } = await readBody<{ url: string }>(event)
@@ -25,33 +27,41 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const branch = parsed.branch || await getDefaultBranch(parsed.owner, parsed.repo)
-  
-  // Fetch tree once
-  const tree = await fetchRepoTree(parsed.owner, parsed.repo, branch)
-  
-  const { skills, totalCount, detectionMethod } = await detectSkills(parsed.owner, parsed.repo, branch, parsed.path, tree)
+  // Create temporary directory for cloning
+  const tempDir = await mkdtemp(join(tmpdir(), 'claude-import-'))
+  const repoUrl = `https://github.com/${parsed.owner}/${parsed.repo}.git`
 
-  if (skills.length === 0) {
-    throw createError({
-      statusCode: 404,
-      data: { error: 'no_skills', message: 'No valid skill files found at this location' },
-    })
-  }
+  try {
+    await gitClone(repoUrl, tempDir, true)
+    
+    const { skills, totalCount, detectionMethod } = await detectSkillsLocal(tempDir, parsed.path)
 
-  // Check for conflicts with existing local skills
-  const skillsWithConflicts = skills.map(s => ({
-    ...s,
-    conflict: existsSync(resolveClaudePath('skills', s.slug, 'SKILL.md')),
-  }))
+    if (skills.length === 0) {
+      throw createError({
+        statusCode: 404,
+        data: { error: 'no_skills', message: 'No valid skill files found at this location' },
+      })
+    }
 
-  return {
-    owner: parsed.owner,
-    repo: parsed.repo,
-    branch,
-    targetPath: parsed.path || '',
-    skills: skillsWithConflicts,
-    totalSkills: totalCount,
-    detectionMethod,
+    // Check for conflicts with existing local skills
+    const skillsWithConflicts = skills.map(s => ({
+      ...s,
+      conflict: existsSync(resolveClaudePath('skills', s.slug, 'SKILL.md')),
+    }))
+
+    return {
+      owner: parsed.owner,
+      repo: parsed.repo,
+      branch: '', // Not needed for local scan
+      targetPath: parsed.path || '',
+      skills: skillsWithConflicts,
+      totalSkills: totalCount,
+      detectionMethod,
+    }
+  } finally {
+    // Cleanup temp directory
+    if (existsSync(tempDir)) {
+      await rm(tempDir, { recursive: true, force: true })
+    }
   }
 })
