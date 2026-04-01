@@ -774,10 +774,10 @@ function handleOpenFile(filePath: string) {
       />
 
       <!-- Messages Area -->
-      <div class="flex-1 relative min-h-0">
+      <div class="flex-1 relative min-h-0 overflow-x-hidden">
         <div
           ref="messagesContainerRef"
-          class="h-full overflow-y-auto transition-opacity duration-200"
+          class="h-full overflow-y-auto overflow-x-hidden transition-opacity duration-200"
           :style="{
             background: 'var(--surface-base)',
             opacity: isInitialScroll ? 0 : 1

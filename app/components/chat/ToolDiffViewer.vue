@@ -86,8 +86,8 @@ const badgeClasses = computed(() => {
     </div>
 
     <!-- Diff lines -->
-    <div class="font-mono text-[11px] leading-[18px] max-h-40 overflow-y-auto">
-      <div v-for="(line, i) in diffLines" :key="i" class="flex">
+    <div class="font-mono text-[11px] leading-[18px] max-h-40 overflow-y-auto overflow-x-auto">
+      <div v-for="(line, i) in diffLines" :key="i" class="flex min-w-0">
         <span
           :class="[
             'w-6 flex-shrink-0 select-none text-center',
