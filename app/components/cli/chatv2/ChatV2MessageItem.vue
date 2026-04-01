@@ -760,11 +760,9 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
    Tables
    ---------------------------------------- */
 .prose :deep(table) {
-  width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
   font-size: 0.9em;
-  table-layout: fixed;
   display: block;
   overflow-x: auto;
   max-width: 100%;
