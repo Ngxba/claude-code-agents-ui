@@ -483,7 +483,7 @@ function scrollToMarketplace(name: string) {
           }"
           @click="activeTab = 'import-agent'"
         >
-          Imported Agents
+          Imported Agents ({{ importedAgentRepos.length }})
         </button>
         <button
           class="px-3 py-1.5 rounded-md text-[12px] font-medium transition-all"
@@ -501,7 +501,7 @@ function scrollToMarketplace(name: string) {
           }"
           @click="activeTab = 'import-skill'"
         >
-          Imported Skills
+          Imported Skills ({{ importedSkillRepos.length }})
         </button>
         <button
           class="px-3 py-1.5 rounded-md text-[12px] font-medium transition-all"
@@ -521,7 +521,7 @@ function scrollToMarketplace(name: string) {
           }"
           @click="activeTab = 'marketplace'"
         >
-          Marketplace ({{ availablePlugins.length }})
+          Marketplace ({{ marketplaceSources.length }})
         </button>
       </div>
 <!-- Search -->
