@@ -474,6 +474,49 @@ watch(currentSessionId, async (newId, oldId) => {
   }
 })
 
+// Deep link / browser nav: sync URL params → internal session state
+// Runs on mount (immediate) and whenever route params or projects change (browser back/forward)
+watch(
+  () => ({
+    projectName: route.params.projectName as string | undefined,
+    sessionId: route.params.sessionId as string | undefined,
+    projectsLoaded: history.projects.value.length > 0,
+  }),
+  async ({ projectName, sessionId, projectsLoaded }) => {
+    // Only act when both params are present in the URL
+    if (!projectName || !sessionId) return
+
+    // Guard: already showing this session
+    if (urlProjectName.value === projectName && urlSessionId.value === sessionId) return
+
+    // Wait for projects to be loaded before resolving session metadata
+    if (!projectsLoaded) return
+
+    // Find project display name from loaded projects
+    const project = history.projects.value.find(p => p.name === projectName)
+    const projectDisplayName = project?.displayName || projectName
+
+    // Fetch sessions for this project if not already loaded
+    if (history.selectedProject.value?.name !== projectName) {
+      history.selectedProject.value = project || null
+      await history.fetchSessions(projectName)
+    }
+
+    // Find session summary
+    const session = history.sessions.value.find(s => s.id === sessionId)
+    const sessionSummary = session?.summary || ''
+
+    // Trigger the existing session selection logic (handles loading, scroll, etc.)
+    await handleClaudeCodeSessionSelected({
+      projectName,
+      sessionId,
+      sessionSummary,
+      projectDisplayName,
+    })
+  },
+  { immediate: true }
+)
+
 // Debounce timer for history refreshes during live chat
 let refreshTimer: NodeJS.Timeout | null = null
 const REFRESH_DEBOUNCE_MS = 2000
