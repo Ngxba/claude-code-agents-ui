@@ -73,9 +73,9 @@ const badgeClasses = computed(() => {
 <template>
   <div class="overflow-hidden rounded border border-gray-200/60 dark:border-gray-700/50 my-2">
     <!-- Header -->
-    <div class="flex items-center justify-between border-b border-gray-200/60 bg-gray-50/80 px-2.5 py-1 dark:border-gray-700/50 dark:bg-gray-800/40">
+    <div class="flex items-center justify-between border-b border-gray-200/60 bg-gray-50/80 px-2.5 py-1 dark:border-gray-700/50 dark:bg-gray-800/40 gap-2">
       <button
-        class="cursor-pointer truncate font-mono text-[11px] text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-left"
+        class="cursor-pointer break-all font-mono text-[11px] text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-left min-w-0 flex-1"
         @click="emit('fileClick', filePath)"
       >
         {{ filePath }}
@@ -86,8 +86,8 @@ const badgeClasses = computed(() => {
     </div>
 
     <!-- Diff lines -->
-    <div class="font-mono text-[11px] leading-[18px] max-h-40 overflow-y-auto">
-      <div v-for="(line, i) in diffLines" :key="i" class="flex">
+    <div class="font-mono text-[11px] leading-[18px] max-h-40 overflow-y-auto overflow-x-auto">
+      <div v-for="(line, i) in diffLines" :key="i" class="flex min-w-0">
         <span
           :class="[
             'w-6 flex-shrink-0 select-none text-center',
@@ -102,7 +102,7 @@ const badgeClasses = computed(() => {
         </span>
         <span
           :class="[
-            'flex-1 whitespace-pre-wrap px-2',
+            'flex-1 whitespace-pre-wrap px-2 break-all',
             line.type === 'removed'
               ? 'bg-red-50/50 text-red-800 dark:bg-red-950/20 dark:text-red-200'
               : line.type === 'added'

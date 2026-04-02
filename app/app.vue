@@ -10,7 +10,6 @@ const { fetchServers, servers: mcpServers } = useMCP()
 
 const initialized = ref(false)
 const showSearch = ref(false)
-const sidebarOpen = ref(false)
 const sidebarCollapsed = ref(false)
 const { isPanelOpen: chatOpen } = useChat()
 const { workingDir, displayPath, setWorkingDir, clearWorkingDir } = useWorkingDir()
@@ -90,8 +89,6 @@ function toggleTheme() {
   colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
 }
 
-watch(() => route.path, () => { sidebarOpen.value = false })
-
 // Cmd+J to toggle chat
 if (import.meta.client) {
   const chatHandler = (e: KeyboardEvent) => {
@@ -146,29 +143,9 @@ function badgeFor(to: string) {
 <template>
   <UApp>
     <div class="flex h-screen overflow-hidden" style="background: var(--surface-base);">
-      <!-- Mobile hamburger (md:hidden) -->
-      <button
-        class="fixed top-4 left-4 z-30 md:hidden p-2 rounded-lg cursor-pointer press-scale"
-        style="background: var(--badge-subtle-bg); border: 1px solid var(--border-subtle); color: var(--text-secondary);"
-        @click="sidebarOpen = true"
-      >
-        <UIcon name="i-lucide-menu" class="size-5" />
-      </button>
-
-      <!-- Backdrop (mobile only) -->
-      <Transition name="fade">
-        <div
-          v-if="sidebarOpen"
-          class="fixed inset-0 z-30 md:hidden"
-          style="background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);"
-          @click="sidebarOpen = false"
-        />
-      </Transition>
-
       <!-- Sidebar -->
       <aside
-        class="sidebar shrink-0 flex flex-col relative h-full overflow-hidden fixed inset-y-0 left-0 z-40 -translate-x-full md:relative md:z-auto md:translate-x-0 transition-all duration-300"
-        :class="{ 'translate-x-0': sidebarOpen }"
+        class="sidebar shrink-0 flex flex-col relative h-full overflow-hidden transition-all duration-300"
         :style="{
           width: sidebarCollapsed ? '56px' : '200px',
           background: 'var(--sidebar-bg)',

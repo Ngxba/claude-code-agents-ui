@@ -59,10 +59,41 @@ const showContextDetails = ref(false)
 const isCreatingSession = ref(false)
 const isInputFocused = ref(false)
 
+// Context details sidebar drag-to-resize
+const contextSidebarWidth = ref(400)
+const isDraggingContextSidebar = ref(false)
+const dragStartX = ref(0)
+const dragStartWidth = ref(0)
+
+function onContextSidebarDragStart(e: MouseEvent) {
+  if (isMobileScreen.value) return
+  isDraggingContextSidebar.value = true
+  dragStartX.value = e.clientX
+  dragStartWidth.value = contextSidebarWidth.value
+  document.body.classList.add('dragging-context-sidebar')
+  document.addEventListener('mousemove', onContextSidebarDragMove)
+  document.addEventListener('mouseup', onContextSidebarDragEnd)
+  e.preventDefault()
+}
+
+function onContextSidebarDragMove(e: MouseEvent) {
+  if (!isDraggingContextSidebar.value) return
+  const delta = dragStartX.value - e.clientX
+  contextSidebarWidth.value = Math.min(800, Math.max(240, dragStartWidth.value + delta))
+}
+
+function onContextSidebarDragEnd() {
+  isDraggingContextSidebar.value = false
+  document.body.classList.remove('dragging-context-sidebar')
+  document.removeEventListener('mousemove', onContextSidebarDragMove)
+  document.removeEventListener('mouseup', onContextSidebarDragEnd)
+}
+
 // Responsive sidebar width based on window size
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200)
 const isSmallScreen = computed(() => windowWidth.value < 1024)
-const isMobileScreen = computed(() => windowWidth.value < 768)
+const isMobileScreen = computed(() => false)
+const isHeaderTwoRow = computed(() => false)
 
 function updateWidth() {
   windowWidth.value = window.innerWidth
@@ -70,21 +101,63 @@ function updateWidth() {
 
 onMounted(() => {
   window.addEventListener('resize', updateWidth)
-  // Auto-collapse sidebar on small laptop screens
-  if (windowWidth.value < 1100) {
-    sidebarCollapsed.value = true
-  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateWidth)
+  document.removeEventListener('mousemove', onContextSidebarDragMove)
+  document.removeEventListener('mouseup', onContextSidebarDragEnd)
+  document.removeEventListener('mousemove', onLeftSidebarDragMove)
+  document.removeEventListener('mouseup', onLeftSidebarDragEnd)
 })
 
-const sidebarWidth = computed(() => {
-  if (sidebarCollapsed.value) return '56px'
-  if (windowWidth.value < 1280) return '260px' // Smaller sidebar for laptops
-  return '320px' // Standard width for desktops
+watch(isMobileScreen, (isMobile) => {
+  if (!isMobile) {
+    mobileSidebarOpen.value = false
+    sidebarCollapsed.value = false
+  }
 })
+
+function getDefaultSidebarWidth() {
+  if (typeof window === 'undefined') return 320
+  if (window.innerWidth < 1024) return 220
+  if (window.innerWidth < 1280) return 260
+  return 320
+}
+const leftSidebarWidth = ref(getDefaultSidebarWidth())
+
+const sidebarWidth = computed(() =>
+  sidebarCollapsed.value ? '56px' : `${leftSidebarWidth.value}px`
+)
+
+// Left sidebar drag-to-resize
+const isDraggingLeftSidebar = ref(false)
+const leftDragStartX = ref(0)
+const leftDragStartWidth = ref(0)
+
+function onLeftSidebarDragStart(e: MouseEvent) {
+  if (sidebarCollapsed.value) return
+  isDraggingLeftSidebar.value = true
+  leftDragStartX.value = e.clientX
+  leftDragStartWidth.value = leftSidebarWidth.value
+  document.body.classList.add('dragging-left-sidebar')
+  document.addEventListener('mousemove', onLeftSidebarDragMove)
+  document.addEventListener('mouseup', onLeftSidebarDragEnd)
+  e.preventDefault()
+}
+
+function onLeftSidebarDragMove(e: MouseEvent) {
+  if (!isDraggingLeftSidebar.value) return
+  const delta = e.clientX - leftDragStartX.value
+  leftSidebarWidth.value = Math.min(480, Math.max(160, leftDragStartWidth.value + delta))
+}
+
+function onLeftSidebarDragEnd() {
+  isDraggingLeftSidebar.value = false
+  document.body.classList.remove('dragging-left-sidebar')
+  document.removeEventListener('mousemove', onLeftSidebarDragMove)
+  document.removeEventListener('mouseup', onLeftSidebarDragEnd)
+}
 
 // Track the working directory for the current session (defaults to prop)
 const localWorkingDir = ref(props.executionOptions.workingDir || '')
@@ -547,7 +620,7 @@ async function handleSessionRenamed(payload: { projectName: string; sessionId: s
     toast.add({
       title: 'Session renamed',
       color: 'success',
-      timeout: 2000
+      duration: 2000
     })
   } catch (e: any) {
     console.error('[ChatV2] Failed to rename session:', e)
@@ -573,7 +646,7 @@ async function handleSessionDeleted(payload: { projectName: string; sessionId: s
     toast.add({
       title: 'Session deleted',
       color: 'success',
-      timeout: 2000
+      duration: 2000
     })
   } catch (e: any) {
     console.error('[ChatV2] Failed to delete session:', e)
@@ -600,13 +673,24 @@ function handleOpenFile(filePath: string) {
   <div class="flex-1 flex min-h-0">
     <!-- Left Sidebar - Claude Code History -->
     <div
-      class="shrink-0 flex flex-col border-r transition-all duration-300"
+      :class="[
+        'flex flex-col border-r relative overflow-hidden shrink-0',
+        !isDraggingLeftSidebar ? 'transition-[width] duration-300' : '',
+      ]"
       :style="{
         width: sidebarWidth,
         borderColor: 'var(--border-subtle)',
         background: 'var(--surface-base)',
+        userSelect: isDraggingLeftSidebar ? 'none' : undefined,
       }"
     >
+      <!-- Drag handle on right edge -->
+      <div
+        v-if="!sidebarCollapsed"
+        class="absolute right-0 inset-y-0 w-1 cursor-col-resize z-10"
+        :class="isDraggingLeftSidebar ? 'bg-accent/40' : 'hover:bg-accent/30'"
+        @mousedown="onLeftSidebarDragStart"
+      />
       <!-- Projects Sidebar -->
       <ChatV2ProjectsSidebar
         :collapsed="sidebarCollapsed"
@@ -623,68 +707,67 @@ function handleOpenFile(filePath: string) {
     </div>
 
     <!-- Right Panel - Chat Interface -->
-    <div class="flex-1 flex flex-col min-h-0 min-w-0">
+    <div class="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
       <!-- Header - Fixed height for consistent alignment -->
       <div
-        class="shrink-0 flex items-center justify-between px-3 md:px-4 h-14 border-b relative z-20"
+        class="shrink-0 border-b relative z-20"
         style="border-color: var(--border-subtle); background: var(--surface-base);"
       >
-        <div class="flex items-center gap-2 min-w-0 flex-1">
+        <div class="flex items-center justify-between px-4 h-14">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
           <!-- History Mode - Session Info -->
           <template v-if="viewMode === 'history'">
-            <div class="flex flex-col justify-center min-w-0 py-1.5">
+            <div class="grid min-w-0 py-0.5 flex-1">
               <!-- Session Name -->
-              <span class="text-[12px] md:text-[13px] font-medium truncate max-w-[300px] md:max-w-[500px] leading-tight" style="color: var(--text-primary);">
+              <div class="text-[13px] font-medium leading-tight text-ellipsis overflow-hidden whitespace-nowrap" style="color: var(--text-primary);">
                 {{ currentSessionSummary || 'Session' }}
-              </span>
+              </div>
               <!-- Folder Name -->
-              <span
+              <div
                 v-if="currentProjectDisplayName"
-                class="text-[9px] md:text-[10px] font-mono truncate leading-tight mt-0.5"
+                class="text-[9px] md:text-[10px] font-mono leading-tight mt-0.5 text-ellipsis overflow-hidden whitespace-nowrap"
                 style="color: var(--text-tertiary);"
               >
                 {{ currentProjectDisplayName }}
-              </span>
+              </div>
             </div>
           </template>
 
           <!-- Live Mode Indicators -->
           <template v-else>
-            <div class="flex items-center gap-1.5 md:gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <!-- Connection Status -->
               <div
                 v-if="isConnected"
-                class="flex items-center gap-1.5 md:gap-2 px-1.5 md:px-2 py-1 rounded text-[10px] md:text-[11px] font-medium"
+                class="flex items-center gap-2 px-2 py-1 rounded text-[11px] font-medium"
                 style="background: rgba(13, 188, 121, 0.1); color: #0dbc79;"
-                :title="isSmallScreen ? 'Connected' : ''"
               >
                 <div class="size-1.5 rounded-full animate-pulse" style="background: #0dbc79;" />
-                <span v-if="!isSmallScreen">Connected</span>
+                <span>Connected</span>
               </div>
               <div
                 v-else
-                class="flex items-center gap-1.5 md:gap-2 px-1.5 md:px-2 py-1 rounded text-[10px] md:text-[11px] font-medium"
+                class="flex items-center gap-2 px-2 py-1 rounded text-[11px] font-medium"
                 style="background: var(--surface-raised); color: var(--text-disabled);"
-                :title="isSmallScreen ? 'Disconnected' : ''"
               >
                 <div class="size-1.5 rounded-full" style="background: var(--text-disabled);" />
-                <span v-if="!isSmallScreen">Disconnected</span>
+                <span>Disconnected</span>
               </div>
 
               <!-- Streaming indicator -->
               <div
                 v-if="isStreaming"
-                class="flex items-center gap-1.5 md:gap-2 px-1.5 md:px-2 py-1 rounded text-[10px] md:text-[11px] font-medium"
+                class="flex items-center gap-2 px-2 py-1 rounded text-[11px] font-medium"
                 style="background: rgba(229, 169, 62, 0.1); color: var(--accent);"
               >
                 <UIcon name="i-lucide-loader-2" class="size-3 animate-spin" />
-                <span v-if="!isSmallScreen">Generating...</span>
+                <span>Generating...</span>
               </div>
 
               <!-- Project/Folder indicator in live mode -->
               <div
                 v-if="localWorkingDir"
-                class="flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-1 rounded text-[10px] md:text-[11px] font-medium max-w-[120px] md:max-w-[200px]"
+                class="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium min-w-0"
                 style="background: var(--surface-raised); color: var(--text-secondary);"
                 :title="localWorkingDir"
               >
@@ -701,7 +784,6 @@ function handleOpenFile(filePath: string) {
             v-if="(viewMode === 'history' && urlSessionId) || (viewMode === 'live' && isLiveChat)"
             v-model="selectedModel"
             :options="MODEL_OPTIONS_CHAT"
-            class="scale-90 md:scale-100 origin-right"
           />
 
           <!-- Permission Mode Selector (only when viewing a specific chat session) -->
@@ -716,6 +798,7 @@ function handleOpenFile(filePath: string) {
             {{ currentSessionId.slice(0, 8) }}
           </span>
         </div>
+        </div>
       </div>
 
       <!-- Permission Banner -->
@@ -726,106 +809,109 @@ function handleOpenFile(filePath: string) {
       />
 
       <!-- Messages Area -->
-      <div class="flex-1 relative min-h-0">
+      <div class="flex-1 relative min-h-0 min-w-0 overflow-x-hidden">
         <div
           ref="messagesContainerRef"
-          class="h-full overflow-y-auto px-2 py-3 md:p-4 space-y-4 transition-opacity duration-200"
-          :style="{ 
+          class="h-full overflow-y-auto overflow-x-hidden transition-opacity duration-200"
+          :style="{
             background: 'var(--surface-base)',
             opacity: isInitialScroll ? 0 : 1
           }"
           @scroll="handleMessagesScroll"
         >
-          <!-- Loading state for creating new session -->
-          <div v-if="isCreatingSession" class="flex items-center justify-center h-full">
-            <div class="text-center">
-              <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--accent);" />
-              <p class="text-[13px]" style="color: var(--text-secondary);">Creating new chat...</p>
-            </div>
-          </div>
-
-          <!-- Loading state for history (only show for initial load, not when loading more) -->
-          <div v-else-if="viewMode === 'history' && isLoadingHistoryWithDelay && !isLoadingMore" class="flex items-center justify-center h-full">
-            <div class="text-center">
-              <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--text-secondary);" />
-              <p class="text-[13px]" style="color: var(--text-secondary);">Loading history...</p>
-            </div>
-          </div>
-
-          <!-- Welcome / Select State -->
-          <div v-else-if="viewMode === 'live' && !isLiveChat && !currentSessionId" class="flex items-center justify-center h-full text-center">
-            <div class="max-w-md px-6">
-              <div class="size-20 mx-auto mb-6 rounded-3xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(229, 169, 62, 0.1) 0%, rgba(229, 169, 62, 0.05) 100%); border: 1px solid rgba(229, 169, 62, 0.1);">
-                <UIcon :name="urlProjectName ? 'i-lucide-folder-root' : 'i-lucide-terminal'" class="size-10" style="color: var(--accent);" />
+          <!-- Content column - grows with available space -->
+          <div class="max-w-[1200px] mx-auto px-4 py-4 space-y-4 min-h-full min-w-0">
+              <!-- Loading state for creating new session -->
+            <div v-if="isCreatingSession" class="flex items-center justify-center h-full">
+              <div class="text-center">
+                <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--accent);" />
+                <p class="text-[13px]" style="color: var(--text-secondary);">Creating new chat...</p>
               </div>
-              <h2 class="text-[20px] font-semibold mb-3" style="color: var(--text-primary); font-family: var(--font-sans);">
-                {{ urlProjectName ? currentProjectDisplayName : 'Claude Code CLI' }}
-              </h2>
-              <p class="text-[14px] leading-relaxed mb-8" style="color: var(--text-secondary);">
-                {{ urlProjectName ? 'Select a session from this folder or start a new conversation below.' : 'Select an existing session from the history or start a new conversation to begin.' }}
-              </p>
-              <div class="flex flex-col gap-3">
-                <button
-                  class="w-full py-2.5 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
-                  style="background: var(--accent); color: white;"
-                  @click="handleNewChat({ workingDir: localWorkingDir })"
-                >
-                  <UIcon name="i-lucide-plus" class="size-4" />
-                  Start a New Chat {{ urlProjectName ? 'in Folder' : '' }}
-                </button>
-                <p v-if="!urlProjectName" class="text-[11px]" style="color: var(--text-tertiary);">
-                  Browse your project history in the left sidebar
+            </div>
+
+            <!-- Loading state for history (only show for initial load, not when loading more) -->
+            <div v-else-if="viewMode === 'history' && isLoadingHistoryWithDelay && !isLoadingMore" class="flex items-center justify-center h-full">
+              <div class="text-center">
+                <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--text-secondary);" />
+                <p class="text-[13px]" style="color: var(--text-secondary);">Loading history...</p>
+              </div>
+            </div>
+
+            <!-- Welcome / Select State -->
+            <div v-else-if="viewMode === 'live' && !isLiveChat && !currentSessionId" class="flex items-center justify-center h-full text-center">
+              <div class="max-w-md px-6">
+                <div class="size-20 mx-auto mb-6 rounded-3xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(229, 169, 62, 0.1) 0%, rgba(229, 169, 62, 0.05) 100%); border: 1px solid rgba(229, 169, 62, 0.1);">
+                  <UIcon :name="urlProjectName ? 'i-lucide-folder-root' : 'i-lucide-terminal'" class="size-10" style="color: var(--accent);" />
+                </div>
+                <h2 class="text-[20px] font-semibold mb-3" style="color: var(--text-primary); font-family: var(--font-sans);">
+                  {{ urlProjectName ? currentProjectDisplayName : 'Claude Code CLI' }}
+                </h2>
+                <p class="text-[14px] leading-relaxed mb-8" style="color: var(--text-secondary);">
+                  {{ urlProjectName ? 'Select a session from this folder or start a new conversation below.' : 'Select an existing session from the history or start a new conversation to begin.' }}
+                </p>
+                <div class="flex flex-col gap-3">
+                  <button
+                    class="w-full py-2.5 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+                    style="background: var(--accent); color: white;"
+                    @click="handleNewChat({ workingDir: localWorkingDir })"
+                  >
+                    <UIcon name="i-lucide-plus" class="size-4" />
+                    Start a New Chat {{ urlProjectName ? 'in Folder' : '' }}
+                  </button>
+                  <p v-if="!urlProjectName" class="text-[11px]" style="color: var(--text-tertiary);">
+                    Browse your project history in the left sidebar
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty state -->
+            <div v-else-if="displayMessages.length === 0 && !isStreaming && !isLoadingClaudeCodeMessages && !isLoadingHistoryWithDelay" class="flex items-center justify-center h-full">
+              <div class="text-center max-w-md">
+                <div class="size-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: var(--surface-raised);">
+                  <UIcon :name="viewMode === 'history' ? 'i-lucide-history' : 'i-lucide-message-circle'" class="size-8" style="color: var(--text-secondary);" />
+                </div>
+                <h2 class="text-[16px] font-semibold mb-2" style="color: var(--text-primary);">
+                  {{ viewMode === 'history' ? 'No Messages Found' : 'Start a Conversation' }}
+                </h2>
+                <p class="text-[13px]" style="color: var(--text-secondary);">
+                  {{ viewMode === 'history' ? 'This session has no displayable messages.' : 'Ask Claude anything. Your message will create a new session automatically.' }}
                 </p>
               </div>
             </div>
-          </div>
 
-          <!-- Empty state -->
-          <div v-else-if="displayMessages.length === 0 && !isStreaming && !isLoadingClaudeCodeMessages && !isLoadingHistoryWithDelay" class="flex items-center justify-center h-full">
-            <div class="text-center max-w-md">
-              <div class="size-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: var(--surface-raised);">
-                <UIcon :name="viewMode === 'history' ? 'i-lucide-history' : 'i-lucide-message-circle'" class="size-8" style="color: var(--text-secondary);" />
+            <!-- Message list -->
+            <template v-else>
+              <!-- Loading more indicator at top -->
+              <div
+                v-if="viewMode === 'history' && isLoadingMore"
+                class="flex items-center justify-center py-4"
+              >
+                <UIcon name="i-lucide-loader-2" class="size-4 animate-spin mr-2" style="color: var(--text-secondary);" />
+                <span class="text-[12px]" style="color: var(--text-secondary);">Loading older messages...</span>
               </div>
-              <h2 class="text-[16px] font-semibold mb-2" style="color: var(--text-primary);">
-                {{ viewMode === 'history' ? 'No Messages Found' : 'Start a Conversation' }}
-              </h2>
-              <p class="text-[13px]" style="color: var(--text-secondary);">
-                {{ viewMode === 'history' ? 'This session has no displayable messages.' : 'Ask Claude anything. Your message will create a new session automatically.' }}
-              </p>
-            </div>
+
+              <!-- Scroll to top hint when more messages available -->
+              <div
+                v-else-if="viewMode === 'history' && claudeCodeMessagesHasMore && !isLoadingMore"
+                class="flex items-center justify-center py-2"
+              >
+                <span class="text-[11px]" style="color: var(--text-tertiary);">
+                  ↑ Scroll up for older messages
+                </span>
+              </div>
+
+              <ChatV2Messages
+                :messages="displayMessages"
+                :is-streaming="isStreaming"
+                @permission-respond="handlePermissionResponse"
+                @open-file="handleOpenFile"
+              />
+
+              <!-- Spacer to ensure last messages can scroll above the blurry toggle -->
+              <div class="h-12 shrink-0" />
+            </template>
           </div>
-
-          <!-- Message list -->
-          <template v-else>
-            <!-- Loading more indicator at top -->
-            <div
-              v-if="viewMode === 'history' && isLoadingMore"
-              class="flex items-center justify-center py-4"
-            >
-              <UIcon name="i-lucide-loader-2" class="size-4 animate-spin mr-2" style="color: var(--text-secondary);" />
-              <span class="text-[12px]" style="color: var(--text-secondary);">Loading older messages...</span>
-            </div>
-
-            <!-- Scroll to top hint when more messages available -->
-            <div
-              v-else-if="viewMode === 'history' && claudeCodeMessagesHasMore && !isLoadingMore"
-              class="flex items-center justify-center py-2"
-            >
-              <span class="text-[11px]" style="color: var(--text-tertiary);">
-                ↑ Scroll up for older messages
-              </span>
-            </div>
-
-            <ChatV2Messages
-              :messages="displayMessages"
-              :is-streaming="isStreaming"
-              @permission-respond="handlePermissionResponse"
-              @open-file="handleOpenFile"
-            />
-
-            <!-- Spacer to ensure last messages can scroll above the blurry toggle -->
-            <div class="h-12 shrink-0" />
-          </template>
         </div>
 
         <!-- Floating-style Controls (Thinking + Context) -->
@@ -936,11 +1022,22 @@ function handleOpenFile(filePath: string) {
 
       <!-- Sidebar Panel -->
       <Transition name="slide">
-        <div 
+        <div
           v-if="showContextDetails"
-          class="absolute inset-y-0 right-0 flex flex-col shadow-2xl transition-all duration-300 pointer-events-auto border-l"
-          style="background: var(--surface-overlay); border-color: var(--border-subtle); width: min(400px, 90vw);"
+          class="absolute inset-y-0 right-0 flex flex-col shadow-2xl pointer-events-auto border-l"
+          :style="{
+            background: 'var(--surface-overlay)',
+            borderColor: 'var(--border-subtle)',
+            width: `${contextSidebarWidth}px`,
+            userSelect: isDraggingContextSidebar ? 'none' : undefined,
+          }"
         >
+          <!-- Drag handle -->
+          <div
+            class="absolute left-0 inset-y-0 w-1 cursor-col-resize z-10 group"
+            :class="isDraggingContextSidebar ? 'bg-accent/40' : 'hover:bg-accent/30'"
+            @mousedown="onContextSidebarDragStart"
+          />
           <!-- Sidebar Header -->
           <div class="shrink-0 px-4 h-14 border-b flex items-center justify-between" style="border-color: var(--border-subtle);">
             <div class="flex items-center gap-2">
@@ -967,6 +1064,11 @@ function handleOpenFile(filePath: string) {
 </template>
 
 <style scoped>
+:global(body.dragging-context-sidebar) {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 .slide-enter-active, .slide-leave-active {
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
 }

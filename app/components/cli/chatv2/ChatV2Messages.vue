@@ -66,17 +66,17 @@ function handleOpenFile(filePath: string) {
     <div
       v-for="group in messageGroups"
       :key="group.id"
-      class="message-group"
+      class="message-group min-w-0"
     >
       <!-- User Message Group -->
-      <div v-if="group.role === 'user'" class="flex justify-end">
+      <div v-if="group.role === 'user'" class="flex justify-end min-w-0">
         <div class="flex items-start gap-2 md:gap-3 max-w-[95%] md:max-w-[85%] min-w-0">
           <div class="flex flex-col items-end gap-1.5 min-w-0">
             <!-- All user messages in this group -->
             <div
               v-for="(msg, idx) in group.messages"
               :key="msg.id"
-              class="px-3 md:px-4 py-2 md:py-2.5"
+              class="px-3 md:px-4 py-2 md:py-2.5 min-w-0"
               :class="idx === 0 ? 'rounded-2xl rounded-tr-md' : 'rounded-2xl rounded-r-md'"
               style="background: var(--accent); color: white;"
             >
@@ -101,7 +101,7 @@ function handleOpenFile(filePath: string) {
       </div>
 
       <!-- Assistant Message Group -->
-      <div v-else class="flex items-start gap-2 md:gap-3">
+      <div v-else class="flex items-start gap-2 md:gap-3 min-w-0">
         <!-- Claude Avatar -->
         <div
           class="size-7 md:size-8 rounded-full shrink-0 flex items-center justify-center"
@@ -112,7 +112,7 @@ function handleOpenFile(filePath: string) {
           </svg>
         </div>
 
-        <div class="flex-1 min-w-0">
+        <div class="flex-1 min-w-0 overflow-wrap-anywhere">
           <!-- Claude Header -->
           <div class="flex items-center gap-2 mb-1.5 md:mb-2">
             <span class="text-[12px] md:text-[13px] font-semibold" style="color: var(--text-primary);">Claude</span>

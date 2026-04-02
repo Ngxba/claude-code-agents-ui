@@ -43,17 +43,17 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="dropdownRef" class="relative z-10">
+  <div ref="dropdownRef" class="relative z-10 min-w-0">
     <button
-      class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+      class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all max-w-full"
       style="background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border-subtle);"
       @click="isOpen = !isOpen"
     >
-      <UIcon name="i-lucide-shield" class="size-3" />
-      {{ selectedOption?.label || 'Default' }}
+      <UIcon name="i-lucide-shield" class="size-3 shrink-0" />
+      <span class="truncate">{{ selectedOption?.label || 'Default' }}</span>
       <UIcon
         :name="isOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-        class="size-3"
+        class="size-3 shrink-0"
       />
     </button>
 
@@ -61,7 +61,7 @@ onUnmounted(() => {
     <Transition name="dropdown">
       <div
         v-if="isOpen"
-        class="absolute top-full right-0 mt-1 w-56 rounded-xl overflow-hidden z-50"
+        class="absolute top-full right-0 mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-xl overflow-hidden z-50"
         style="background: var(--surface-overlay); border: 1px solid var(--border-default); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-subtle);"
       >
         <div class="py-1">

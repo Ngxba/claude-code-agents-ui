@@ -59,7 +59,8 @@ function autoResize() {
   if (!textareaRef.value) return
 
   textareaRef.value.style.height = 'auto'
-  const newHeight = Math.min(textareaRef.value.scrollHeight, 200)
+  const maxHeight = window.innerWidth < 640 ? 120 : window.innerWidth < 768 ? 160 : 200
+  const newHeight = Math.min(textareaRef.value.scrollHeight, maxHeight)
   textareaRef.value.style.height = `${newHeight}px`
 }
 
@@ -85,7 +86,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="px-3 py-2" style="background: var(--surface-base);">
+  <div class="px-2 py-1.5 sm:px-3 sm:py-2" style="background: var(--surface-base);">
     <!-- Image Previews -->
     <div v-if="attachedImages.length > 0" class="flex gap-2 mb-2 overflow-x-auto pb-1">
       <div v-for="(img, idx) in attachedImages" :key="idx" class="relative group shrink-0">
@@ -118,7 +119,6 @@ onMounted(() => {
         class="flex-1 bg-transparent text-[13px] resize-none focus:outline-none leading-5"
         :style="{
           color: disabled ? 'var(--text-disabled)' : 'var(--text-primary)',
-          maxHeight: '160px',
         }"
         :placeholder="placeholder || 'Send a message...'"
         @keydown="handleKeydown"
@@ -170,8 +170,8 @@ onMounted(() => {
     </div>
 
     <!-- Bottom hints -->
-    <div class="flex items-center justify-between mt-1.5 px-1">
-      <div class="flex items-center gap-3 text-[10px]" style="color: var(--text-tertiary);">
+    <div class="flex flex-wrap items-center justify-between mt-1.5 px-1 gap-2">
+      <div class="flex flex-wrap items-center gap-3 text-[10px]" style="color: var(--text-tertiary);">
         <span class="flex items-center gap-1">
           <kbd class="px-1 py-0.5 rounded text-[9px]" style="background: var(--surface-raised);">Enter</kbd>
           send

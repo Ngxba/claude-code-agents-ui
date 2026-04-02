@@ -65,6 +65,41 @@ async function updateHighlighting() {
 watch(content, updateHighlighting, { immediate: true })
 
 const isExpanded = ref(false)
+
+// Drag-to-resize
+const sidebarWidth = ref(Math.max(window?.innerWidth ? window.innerWidth * 0.5 : 600, 400))
+const isDragging = ref(false)
+const dragStartX = ref(0)
+const dragStartWidth = ref(0)
+
+function onDragStart(e: MouseEvent) {
+  if (isExpanded.value) return
+  isDragging.value = true
+  dragStartX.value = e.clientX
+  dragStartWidth.value = sidebarWidth.value
+  document.body.classList.add('dragging-file-sidebar')
+  document.addEventListener('mousemove', onDragMove)
+  document.addEventListener('mouseup', onDragEnd)
+  e.preventDefault()
+}
+
+function onDragMove(e: MouseEvent) {
+  if (!isDragging.value) return
+  const delta = dragStartX.value - e.clientX
+  sidebarWidth.value = Math.min(window.innerWidth * 0.95, Math.max(300, dragStartWidth.value + delta))
+}
+
+function onDragEnd() {
+  isDragging.value = false
+  document.body.classList.remove('dragging-file-sidebar')
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('mouseup', onDragEnd)
+}
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('mouseup', onDragEnd)
+})
 </script>
 
 <template>
@@ -80,11 +115,21 @@ const isExpanded = ref(false)
 
     <!-- Sidebar Panel -->
     <Transition name="slide">
-      <div 
+      <div
         v-if="state.isOpen"
-        class="absolute inset-y-0 right-0 flex flex-col shadow-2xl transition-all duration-300 bg-card border-l border-border-subtle pointer-events-auto"
-        :style="{ width: isExpanded ? '100%' : 'max(50%, 400px)' }"
+        class="absolute inset-y-0 right-0 flex flex-col shadow-2xl bg-card border-l border-border-subtle pointer-events-auto"
+        :style="{
+          width: isExpanded ? '100%' : `${sidebarWidth}px`,
+          userSelect: isDragging ? 'none' : undefined,
+        }"
       >
+        <!-- Drag handle -->
+        <div
+          v-if="!isExpanded"
+          class="absolute left-0 inset-y-0 w-1 cursor-col-resize z-10"
+          :class="isDragging ? 'bg-accent/40' : 'hover:bg-accent/30'"
+          @mousedown="onDragStart"
+        />
         <!-- Header -->
         <div class="flex items-center justify-between px-4 py-3 border-b border-border-subtle shrink-0">
           <div class="flex items-center gap-3 min-w-0">
@@ -143,6 +188,11 @@ const isExpanded = ref(false)
 </template>
 
 <style scoped>
+:global(body.dragging-file-sidebar) {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 .slide-enter-active, .slide-leave-active {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
 }

@@ -246,7 +246,7 @@ function confirmDelete() {
 <template>
   <div class="h-full flex flex-col">
     <!-- Sidebar Header - Fixed height to align with chat header -->
-    <div class="shrink-0 px-3 h-14 border-b flex items-center gap-2" style="border-color: var(--border-subtle);">
+    <div class="shrink-0 px-3 min-h-[3.5rem] border-b flex flex-wrap items-center gap-2 py-2" style="border-color: var(--border-subtle);">
       <template v-if="!collapsed">
         <!-- Back button when viewing sessions -->
         <button
@@ -260,10 +260,10 @@ function confirmDelete() {
         </button>
 
         <div class="flex-1 min-w-0 flex flex-col justify-center">
-          <h3 class="text-[13px] font-semibold truncate leading-tight" style="color: var(--text-primary);">
+          <h3 class="text-[13px] font-semibold break-words leading-tight" style="color: var(--text-primary);">
             {{ viewMode === 'projects' ? 'Claude Code History' : selectedProject?.displayName || 'Sessions' }}
           </h3>
-          <p v-if="viewMode === 'sessions' && selectedProject" class="text-[10px] truncate leading-tight mt-0.5" style="color: var(--text-tertiary);">
+          <p v-if="viewMode === 'sessions' && selectedProject" class="text-[10px] break-all leading-tight mt-0.5" style="color: var(--text-tertiary);">
             {{ selectedProject.path }}
           </p>
         </div>
@@ -296,7 +296,7 @@ function confirmDelete() {
             @click="handleNewChat"
           >
             <UIcon name="i-lucide-plus" class="size-3.5" />
-            {{ viewMode === 'sessions' ? 'New Chat in this folder' : 'New Chat' }}
+            New Chat
           </button>
           <button
             class="p-2 rounded-lg transition-all hover-bg flex items-center justify-center"
@@ -356,14 +356,14 @@ function confirmDelete() {
         <div
           v-for="(project, index) in projects"
           :key="project.name"
-          class="stagger-item px-3 py-2.5 rounded-lg cursor-pointer transition-all hover-bg group"
+          class="stagger-item px-3 py-2.5 rounded-lg cursor-pointer transition-all hover-bg group min-w-0"
           style="background: var(--surface-raised);"
           :style="{ animationDelay: `${index * 40}ms` }"
           @click="handleProjectClick(project)"
         >
-          <div class="flex items-center gap-2 mb-0.5">
+          <div class="flex items-center gap-2 mb-0.5 min-w-0">
             <UIcon name="i-lucide-folder" class="size-3.5 shrink-0" style="color: var(--accent);" />
-            <span class="text-[12px] font-medium truncate flex-1" style="color: var(--text-primary);">
+            <span class="text-[12px] font-medium break-words flex-1 min-w-0" style="color: var(--text-primary);">
               {{ project.displayName }}
             </span>
             <UIcon
@@ -412,7 +412,7 @@ function confirmDelete() {
         <div
           v-for="(session, index) in sessions"
           :key="session.id"
-          class="stagger-item px-3 py-2.5 rounded-lg transition-all group/session"
+          class="stagger-item px-3 py-2.5 rounded-lg transition-all group/session min-w-0"
           :class="isLoadingMessages ? 'cursor-not-allowed' : 'cursor-pointer hover-bg'"
           :style="{
             background: selectedSession?.id === session.id || currentSessionId === session.id
@@ -425,7 +425,7 @@ function confirmDelete() {
           }"
           @click="handleSessionClick(session)"
         >
-            <div class="flex items-start gap-1">
+            <div class="flex items-start gap-1 min-w-0">
               <div class="flex-1 min-w-0">
                 <!-- Inline edit mode -->
                 <template v-if="editingSessionId === session.id">
@@ -461,9 +461,9 @@ function confirmDelete() {
                   class="text-[12px] font-medium truncate mb-1"
                   style="color: var(--text-primary);"
                 >
-                  {{ truncate(session.summary, 50) }}
+                  {{ session.summary || 'Session' }}
                 </div>
-                <div class="flex items-center gap-2 text-[10px]" style="color: var(--text-tertiary);">
+                <div class="flex flex-wrap items-center gap-2 text-[10px]" style="color: var(--text-tertiary);">
                   <span>{{ session.messageCount }} messages</span>
                   <span>{{ formatRelativeTime(session.lastActivity) }}</span>
                 </div>

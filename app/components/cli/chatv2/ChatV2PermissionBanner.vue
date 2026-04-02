@@ -34,24 +34,24 @@ function handleDeny() {
 <template>
   <div
     v-if="permissions.length > 0"
-    class="shrink-0 px-4 py-3 border-b flex items-center justify-between gap-4"
+    class="shrink-0 px-4 py-3 border-b flex flex-wrap items-center justify-between gap-4"
     style="background: rgba(229, 169, 62, 0.1); border-color: var(--accent);"
   >
-    <div class="flex items-center gap-3">
-      <UIcon name="i-lucide-shield-question" class="size-5" style="color: var(--accent);" />
-      <div>
-        <div class="text-[12px] font-semibold" style="color: var(--text-primary);">
+    <div class="flex items-center gap-3 min-w-0">
+      <UIcon name="i-lucide-shield-question" class="size-5 shrink-0" style="color: var(--accent);" />
+      <div class="min-w-0">
+        <div class="text-[12px] font-semibold break-words" style="color: var(--text-primary);">
           Permission Required
           <span
             v-if="permissions.length > 1"
-            class="ml-2 px-1.5 py-0.5 rounded text-[10px]"
+            class="ml-2 px-1.5 py-0.5 rounded text-[10px] inline-block"
             style="background: var(--accent); color: white;"
           >
             +{{ permissions.length - 1 }} more
           </span>
         </div>
-        <div class="text-[11px]" style="color: var(--text-secondary);">
-          <strong>{{ firstPermission?.toolName }}</strong> wants to perform an action
+        <div class="text-[11px] break-words" style="color: var(--text-secondary);">
+          <strong class="break-all">{{ firstPermission?.toolName }}</strong> wants to perform an action
         </div>
       </div>
     </div>

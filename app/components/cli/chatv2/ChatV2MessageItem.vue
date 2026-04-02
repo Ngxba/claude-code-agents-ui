@@ -184,13 +184,13 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
 </script>
 
 <template>
-  <div class="message-item overflow-hidden max-w-full min-w-0">
+  <div class="message-item max-w-full min-w-0">
     <!-- User Message - shouldn't appear here since handled by parent, but just in case -->
     <template v-if="message.role === 'user'">
       <div v-if="message.images && message.images.length > 0" class="flex flex-wrap gap-2 mb-2">
         <img v-for="(img, i) in message.images" :key="i" :src="img" class="max-w-[200px] max-h-[200px] rounded object-contain border" style="border-color: var(--border-subtle);" />
       </div>
-      <div v-if="message.content" class="text-[13px] whitespace-pre-wrap" style="color: var(--text-primary);">
+      <div v-if="message.content" class="text-[13px] whitespace-pre-wrap break-words" style="color: var(--text-primary);">
         {{ message.content }}
       </div>
     </template>
@@ -199,7 +199,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
     <template v-else-if="message.kind === 'text' && message.content">
       <div class="group relative">
         <div
-          class="prose prose-sm text-[13px] leading-relaxed"
+          class="prose prose-sm max-w-none text-[13px] leading-relaxed break-words"
           style="color: var(--text-primary);"
           v-html="renderedContent"
         />
@@ -245,7 +245,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
 
       <div
         v-if="showThinking"
-        class="mt-2 p-2 md:p-3 rounded-lg text-[11px] md:text-[12px] whitespace-pre-wrap"
+        class="mt-2 p-2 md:p-3 rounded-lg text-[11px] md:text-[12px] whitespace-pre-wrap break-words"
         style="background: var(--surface-raised); color: var(--text-tertiary); border-left: 2px solid #8b5cf6;"
       >
         {{ message.thinking || message.content }}
@@ -269,13 +269,13 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
           </div>
 
           <!-- Command -->
-          <div class="px-3 md:px-4 py-2 md:py-3 pl-8 md:pl-9 font-mono text-[11px] md:text-[12px]" style="color: #9ece6a;">
+          <div class="px-3 md:px-4 py-2 md:py-3 pl-8 md:pl-9 font-mono text-[11px] md:text-[12px] break-all" style="color: #9ece6a;">
             <span style="color: #7aa2f7;">$</span> {{ bashCommand }}
           </div>
         </div>
 
         <!-- Description -->
-        <p v-if="bashDescription" class="text-[11px] px-1 italic" style="color: var(--text-tertiary);">
+        <p v-if="bashDescription" class="text-[11px] px-1 italic break-words" style="color: var(--text-tertiary);">
           {{ bashDescription }}
         </p>
 
@@ -349,7 +349,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
 
               <!-- Todo Content -->
               <span
-                class="flex-1 text-[12px]"
+                class="flex-1 text-[12px] break-words"
                 :style="{
                   color: todo.status === 'completed' ? 'var(--text-tertiary)' : 'var(--text-primary)',
                   textDecoration: todo.status === 'completed' ? 'line-through' : 'none',
@@ -384,14 +384,14 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
         />
 
         <div class="flex-1 min-w-0">
-          <div class="text-[12px] flex items-center gap-2">
+          <div class="text-[12px] flex items-center gap-2 flex-wrap">
             <span style="color: var(--text-secondary);">{{ message.toolName }}</span>
 
             <!-- Clickable filename for Read/Write -->
             <template v-if="message.toolName !== 'Glob' && displayFileName">
               <span style="color: var(--text-tertiary);">/</span>
               <span
-                class="font-medium cursor-pointer hover:underline truncate"
+                class="font-medium cursor-pointer hover:underline break-all"
                 :style="{ color: getToolColor(message.toolName || 'unknown') }"
                 @click.stop="handleFileClick"
                 :title="toolFileName"
@@ -403,7 +403,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
             <!-- Non-clickable pattern for Glob -->
             <template v-else-if="message.toolName === 'Glob' && toolFileName">
               <span style="color: var(--text-tertiary);">:</span>
-              <span class="font-mono text-[11px] text-meta truncate" :title="toolFileName">
+              <span class="font-mono text-[11px] text-meta break-all" :title="toolFileName">
                 {{ toolFileName }}
               </span>
             </template>
@@ -449,7 +449,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
             <template v-if="displayFileName">
               <span style="color: var(--text-tertiary);">/</span>
               <span
-                class="font-medium cursor-pointer hover:underline"
+                class="font-medium cursor-pointer hover:underline break-all"
                 :style="{ color: getToolColor(message.toolName || 'unknown') }"
                 @click.stop="handleFileClick"
               >
@@ -760,11 +760,12 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
    Tables
    ---------------------------------------- */
 .prose :deep(table) {
-  width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
   font-size: 0.9em;
-  table-layout: fixed;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .prose :deep(th),
@@ -800,7 +801,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
   padding: 0.2em 0.4em;
   border-radius: 0.25rem;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace);
-  word-break: break-all;
+  word-break: break-word;
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
 }
@@ -882,6 +883,7 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
   margin: 1rem 0;
   border-radius: 0.5rem;
   overflow: hidden;
+  max-width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
@@ -908,6 +910,8 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
   border: none;
   overflow-x: auto;
   background: #1e1e2e !important; /* tokyo-night */
+  white-space: pre-wrap; /* allow wrapping in code blocks if needed */
+  word-break: break-all;
 }
 
 /* Code inside shiki pre */
@@ -917,9 +921,9 @@ function getTodoStatusBadge(status: string): { bg: string; color: string; label:
   padding: 0;
   font-size: 0.875em;
   line-height: 1.7;
-  white-space: pre;
-  word-break: normal;
-  overflow-wrap: normal;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 /* Shiki inline spans carry their own color — don't override */

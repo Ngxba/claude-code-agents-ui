@@ -26,7 +26,7 @@ const getStatusColor = () => {
   <div class="p-4 space-y-6">
     <!-- Summary Section -->
     <div class="space-y-3">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <h4 class="text-[11px] font-bold uppercase tracking-wider text-tertiary" style="color: var(--text-tertiary);">Current Usage</h4>
         <span class="text-[11px] font-mono" :style="{ color: getStatusColor() }">{{ contextPercentage }}%</span>
       </div>
@@ -42,15 +42,15 @@ const getStatusColor = () => {
         />
       </div>
 
-      <div class="flex justify-between text-[12px]">
-        <span style="color: var(--text-secondary);">{{ formatNumber(metrics.contextWindow.used) }} tokens used</span>
+      <div class="flex flex-wrap justify-between text-[12px] gap-2">
+        <span class="min-w-0 break-words" style="color: var(--text-secondary);">{{ formatNumber(metrics.contextWindow.used) }} tokens used</span>
         <span style="color: var(--text-tertiary);">{{ formatNumber(metrics.contextWindow.total) }} total</span>
       </div>
     </div>
 
     <!-- Breakdown Section -->
     <div class="space-y-4">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <h4 class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--text-tertiary);">Token Breakdown</h4>
         <UTooltip text="Input + Cache Write + Cache Read = Context Used" :popper="{ placement: 'left' }">
           <UIcon name="i-lucide-help-circle" class="size-3.5" style="color: var(--text-disabled);" />
@@ -59,37 +59,37 @@ const getStatusColor = () => {
       
       <div class="space-y-3">
         <!-- Input Tokens -->
-        <div class="flex items-center justify-between p-2.5 rounded-lg" style="background: var(--surface-raised);">
-          <div class="flex items-center gap-2">
-            <div class="size-2 rounded-full" style="background: #3b82f6;" />
-            <span class="text-[12px]" style="color: var(--text-primary);">Input</span>
+        <div class="flex flex-wrap items-center justify-between p-2.5 rounded-lg gap-2" style="background: var(--surface-raised);">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="size-2 rounded-full shrink-0" style="background: #3b82f6;" />
+            <span class="text-[12px] break-words" style="color: var(--text-primary);">Input</span>
           </div>
           <span class="text-[12px] font-mono" style="color: var(--text-secondary);">{{ formatNumber(metrics.tokens.input) }}</span>
         </div>
 
         <!-- Cache Write (Creation) -->
-        <div class="flex items-center justify-between p-2.5 rounded-lg" style="background: var(--surface-raised);">
-          <div class="flex items-center gap-2">
-            <div class="size-2 rounded-full" style="background: #f59e0b;" />
-            <span class="text-[12px]" style="color: var(--text-primary);">Cache Write</span>
+        <div class="flex flex-wrap items-center justify-between p-2.5 rounded-lg gap-2" style="background: var(--surface-raised);">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="size-2 rounded-full shrink-0" style="background: #f59e0b;" />
+            <span class="text-[12px] break-words" style="color: var(--text-primary);">Cache Write</span>
           </div>
           <span class="text-[12px] font-mono" style="color: var(--text-secondary);">{{ formatNumber(metrics.tokens.cacheCreation || 0) }}</span>
         </div>
 
         <!-- Cache Read (Cached) -->
-        <div class="flex items-center justify-between p-2.5 rounded-lg" style="background: var(--surface-raised);">
-          <div class="flex items-center gap-2">
-            <div class="size-2 rounded-full" style="background: #8b5cf6;" />
-            <span class="text-[12px]" style="color: var(--text-primary);">Cache Read</span>
+        <div class="flex flex-wrap items-center justify-between p-2.5 rounded-lg gap-2" style="background: var(--surface-raised);">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="size-2 rounded-full shrink-0" style="background: #8b5cf6;" />
+            <span class="text-[12px] break-words" style="color: var(--text-primary);">Cache Read</span>
           </div>
           <span class="text-[12px] font-mono" style="color: var(--text-secondary);">{{ formatNumber(metrics.tokens.cached || 0) }}</span>
         </div>
 
         <!-- Output Tokens -->
-        <div class="flex items-center justify-between p-2.5 rounded-lg border-t border-dashed mt-2 pt-3" style="border-color: var(--border-subtle);">
-          <div class="flex items-center gap-2">
-            <div class="size-2 rounded-full" style="background: #22c55e;" />
-            <span class="text-[12px]" style="color: var(--text-primary);">Output (Next turn)</span>
+        <div class="flex flex-wrap items-center justify-between p-2.5 rounded-lg border-t border-dashed mt-2 pt-3 gap-2" style="border-color: var(--border-subtle);">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="size-2 rounded-full shrink-0" style="background: #22c55e;" />
+            <span class="text-[12px] break-words" style="color: var(--text-primary);">Output (Next turn)</span>
           </div>
           <span class="text-[12px] font-mono" style="color: var(--text-secondary);">{{ formatNumber(metrics.tokens.output) }}</span>
         </div>
