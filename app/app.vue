@@ -414,8 +414,10 @@ function badgeFor(to: string) {
           @complete="async () => { await loadConfig(); await Promise.all([fetchAgents(), fetchCommands(), fetchPlugins(), fetchSkills()]) }"
         />
 
-        <NuxtPage v-else-if="initialized" />
-        <div v-else class="flex items-center justify-center h-full">
+        <div v-show="initialized && claudeDirExists">
+          <NuxtPage />
+        </div>
+        <div v-if="!initialized" class="flex items-center justify-center h-full">
           <UIcon name="i-lucide-loader-2" class="size-5 animate-spin" style="color: var(--text-disabled);" />
         </div>
       </main>

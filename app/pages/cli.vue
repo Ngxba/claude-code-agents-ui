@@ -13,9 +13,9 @@ useHead({
         <ChatV2Interface :execution-options="executionOptions" />
       </div>
     </div>
-  </div>
-  <!-- Hidden child route outlet — child page has no content, just registers route params -->
-  <div class="hidden">
-    <NuxtPage />
+    <!-- Hidden child route outlet — child page has no content, just registers route params -->
+    <div class="hidden">
+      <NuxtPage />
+    </div>
   </div>
 </template>
