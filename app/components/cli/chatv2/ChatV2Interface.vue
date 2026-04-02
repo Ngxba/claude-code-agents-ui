@@ -945,6 +945,20 @@ function handleOpenFile(filePath: string) {
 
       <!-- Messages Area -->
       <div class="flex-1 relative min-h-0 min-w-0 overflow-x-hidden">
+        <!-- Loading spinners live outside the opacity-controlled container so they're always visible -->
+        <div v-if="isCreatingSession" class="absolute inset-0 flex items-center justify-center z-10" :style="{ background: 'var(--surface-base)' }">
+          <div class="text-center">
+            <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--accent);" />
+            <p class="text-[13px]" style="color: var(--text-secondary);">Creating new chat...</p>
+          </div>
+        </div>
+        <div v-else-if="viewMode === 'history' && isLoadingHistoryWithDelay && !isLoadingMore" class="absolute inset-0 flex items-center justify-center z-10" :style="{ background: 'var(--surface-base)' }">
+          <div class="text-center">
+            <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--text-secondary);" />
+            <p class="text-[13px]" style="color: var(--text-secondary);">Loading history...</p>
+          </div>
+        </div>
+
         <div
           ref="messagesContainerRef"
           class="h-full overflow-y-auto overflow-x-hidden"
@@ -956,24 +970,8 @@ function handleOpenFile(filePath: string) {
         >
           <!-- Content column - grows with available space -->
           <div class="max-w-[1200px] mx-auto px-4 py-4 space-y-4 min-h-full min-w-0">
-              <!-- Loading state for creating new session -->
-            <div v-if="isCreatingSession" class="flex items-center justify-center h-full">
-              <div class="text-center">
-                <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--accent);" />
-                <p class="text-[13px]" style="color: var(--text-secondary);">Creating new chat...</p>
-              </div>
-            </div>
-
-            <!-- Loading state for history (only show for initial load, not when loading more) -->
-            <div v-else-if="viewMode === 'history' && isLoadingHistoryWithDelay && !isLoadingMore" class="flex items-center justify-center h-full">
-              <div class="text-center">
-                <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mb-3" style="color: var(--text-secondary);" />
-                <p class="text-[13px]" style="color: var(--text-secondary);">Loading history...</p>
-              </div>
-            </div>
-
             <!-- Welcome / Select State -->
-            <div v-else-if="viewMode === 'live' && !isLiveChat && !currentSessionId" class="flex items-center justify-center h-full text-center">
+            <div v-if="viewMode === 'live' && !isLiveChat && !currentSessionId" class="flex items-center justify-center h-full text-center">
               <div class="max-w-md px-6">
                 <div class="size-20 mx-auto mb-6 rounded-3xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(229, 169, 62, 0.1) 0%, rgba(229, 169, 62, 0.05) 100%); border: 1px solid rgba(229, 169, 62, 0.1);">
                   <UIcon :name="urlProjectName ? 'i-lucide-folder-root' : 'i-lucide-terminal'" class="size-10" style="color: var(--accent);" />
@@ -1001,7 +999,7 @@ function handleOpenFile(filePath: string) {
             </div>
 
             <!-- Empty state -->
-            <div v-else-if="displayMessages.length === 0 && !isStreaming && !isLoadingClaudeCodeMessages && !isLoadingHistoryWithDelay" class="flex items-center justify-center h-full">
+            <div v-else-if="!isLoadingHistoryWithDelay && !isCreatingSession && displayMessages.length === 0 && !isStreaming && !isLoadingClaudeCodeMessages" class="flex items-center justify-center h-full">
               <div class="text-center max-w-md">
                 <div class="size-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: var(--surface-raised);">
                   <UIcon :name="viewMode === 'history' ? 'i-lucide-history' : 'i-lucide-message-circle'" class="size-8" style="color: var(--text-secondary);" />
