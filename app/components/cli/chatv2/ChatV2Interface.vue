@@ -704,46 +704,197 @@ async function selectSession(sessionId: string | null) {
   }
 }
 
-// Send message (works in both live and history mode)
-async function handleSendMessage(images: string[] = []) {
-  if ((!inputText.value.trim() && images.length === 0) || isStreaming.value) return
+// Composables for slash command resolution
+const { commands: allCommands, fetchAll: fetchCommands } = useCommands()
+const { skills: allSkills, fetchAll: fetchSkills } = useSkills()
 
-  // If in history mode, start continuing the session
+// Ensure commands/skills are loaded for slash command matching
+onMounted(async () => {
+  await Promise.all([
+    allCommands.value.length === 0 ? fetchCommands() : Promise.resolve(),
+    allSkills.value.length === 0 ? fetchSkills() : Promise.resolve(),
+  ])
+})
+
+/**
+ * Execute a slash command via HTTP API (not WebSocket).
+ * Built-in commands are handled inline; custom commands are re-submitted as regular messages.
+ */
+async function executeSlashCommand(rawInput: string): Promise<boolean> {
+  const trimmed = rawInput.trim()
+  const firstSpace = trimmed.indexOf(' ')
+  const commandName = firstSpace > 0 ? trimmed.slice(0, firstSpace) : trimmed
+  const argsStr = firstSpace > 0 ? trimmed.slice(firstSpace + 1).trim() : ''
+  const args = argsStr ? argsStr.split(/\s+/) : []
+
+  // Find matching command or skill
+  const nameWithoutSlash = commandName.slice(1) // remove leading "/"
+  const matchedCommand = allCommands.value.find(c => c.frontmatter.name === nameWithoutSlash)
+  const matchedSkill = allSkills.value.find(s => s.frontmatter.name === nameWithoutSlash)
+
+  // Determine path for custom commands/skills
+  const commandPath = matchedCommand?.filePath || matchedSkill?.filePath || undefined
+
+  // If no match found in custom commands/skills and not a known built-in, just send as regular message
+  const knownBuiltins = ['help', 'clear', 'model', 'cost', 'memory', 'config', 'status']
+  if (!commandPath && !knownBuiltins.includes(nameWithoutSlash)) {
+    return false // Not a command — let it be sent as a regular message
+  }
+
+  // Add user message bubble so the command shows in chat
+  addLocalUserMessage(rawInput)
+
+  try {
+    const response = await $fetch<any>('/api/commands/execute', {
+      method: 'POST',
+      body: {
+        commandName,
+        commandPath,
+        args,
+        context: {
+          projectPath: localWorkingDir.value,
+          model: selectedModel.value,
+          sessionId: currentSessionId.value,
+        },
+      },
+    })
+
+    if (response.type === 'builtin') {
+      handleBuiltInCommandResult(response)
+    } else if (response.type === 'custom') {
+      // Re-submit the processed command content as a regular message
+      sendRegularMessage(response.content, [])
+    }
+
+    return true
+  } catch (err: any) {
+    console.error('[ChatV2] Error executing command:', err)
+    // Add error as assistant message
+    addLocalAssistantMessage(`Error executing command: ${err.data?.message || err.message || 'Unknown error'}`)
+    return true // consumed the command (even though it errored)
+  }
+}
+
+/**
+ * Handle built-in command results by adding messages to the chat
+ */
+function handleBuiltInCommandResult(result: any) {
+  const { action, data } = result
+  switch (action) {
+    case 'clear':
+      if (currentSessionId.value) {
+        sessionStore.clearRealtime(currentSessionId.value)
+      }
+      addLocalAssistantMessage(data.message)
+      break
+    case 'help':
+      addLocalAssistantMessage(data.content)
+      break
+    case 'model':
+      addLocalAssistantMessage(data.message)
+      break
+    case 'cost': {
+      const msg = `**Token Usage**: ${data.tokenUsage.used.toLocaleString()} / ${data.tokenUsage.total.toLocaleString()} (${data.tokenUsage.percentage}%)\n\n**Model**: ${data.model}`
+      addLocalAssistantMessage(msg)
+      break
+    }
+    case 'status': {
+      const msg = `**System Status**\n- Uptime: ${data.uptime}\n- Model: ${data.model}\n- Node.js: ${data.nodeVersion}\n- Platform: ${data.platform}`
+      addLocalAssistantMessage(msg)
+      break
+    }
+    case 'memory':
+      addLocalAssistantMessage(data.message)
+      break
+    case 'config':
+      addLocalAssistantMessage(data.message)
+      break
+    default:
+      addLocalAssistantMessage(`Command executed: ${action}`)
+  }
+}
+
+/**
+ * Add a local user message to the current session
+ */
+function addLocalUserMessage(content: string) {
+  const sid = currentSessionId.value || `local-${Date.now()}`
+  if (!currentSessionId.value) {
+    setCurrentSessionId(sid)
+  }
+  sessionStore.appendRealtime(sid, {
+    kind: 'text',
+    id: `user-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    sessionId: sid,
+    timestamp: new Date().toISOString(),
+    role: 'user',
+    content,
+  })
+}
+
+/**
+ * Add a local assistant message to the current session
+ */
+function addLocalAssistantMessage(content: string) {
+  const sid = currentSessionId.value || `local-${Date.now()}`
+  if (!currentSessionId.value) {
+    setCurrentSessionId(sid)
+  }
+  sessionStore.appendRealtime(sid, {
+    kind: 'text',
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    sessionId: sid,
+    timestamp: new Date().toISOString(),
+    role: 'assistant',
+    content,
+  })
+}
+
+/**
+ * Send a regular (non-command) message through the WebSocket/SDK
+ */
+function sendRegularMessage(text: string, images: string[]) {
   if (viewMode.value === 'history' && !isContinuingHistory.value) {
-    // For history continuation, we use the existing SDK session ID
     isContinuingHistory.value = true
-
-    // Send the message with the history session ID to resume that SDK session
-    const success = sendChat(inputText.value, {
-      sessionId: urlSessionId.value || undefined, // SDK session ID from history
+    sendChat(text, {
+      sessionId: urlSessionId.value || undefined,
       workingDir: localWorkingDir.value || undefined,
       permissionMode: selectedPermissionMode.value,
       model: selectedModel.value,
       thinkingEnabled: thinkingEnabled.value,
       images,
     })
-
-    if (success) {
-      inputText.value = ''
-    }
     return
   }
 
-  // Live mode - send message
-  // sendChat() now generates temp session IDs (new-session-{timestamp}) for new sessions
-  // The backend will respond with session_created event containing the real session ID
-  const success = sendChat(inputText.value, {
-    sessionId: currentSessionId.value || undefined, // Will generate temp ID if undefined
+  sendChat(text, {
+    sessionId: currentSessionId.value || undefined,
     workingDir: localWorkingDir.value || undefined,
     permissionMode: selectedPermissionMode.value,
     model: selectedModel.value,
     thinkingEnabled: thinkingEnabled.value,
     images,
   })
+}
 
-  if (success) {
-    inputText.value = ''
+// Send message (works in both live and history mode)
+async function handleSendMessage(images: string[] = []) {
+  if ((!inputText.value.trim() && images.length === 0) || isStreaming.value) return
+
+  const trimmed = inputText.value.trim()
+
+  // Intercept slash commands — handle via HTTP API, not WebSocket
+  if (trimmed.startsWith('/')) {
+    const consumed = await executeSlashCommand(trimmed)
+    if (consumed) {
+      inputText.value = ''
+      return
+    }
+    // If not consumed (not a known command), fall through to regular message
   }
+
+  sendRegularMessage(inputText.value, images)
+  inputText.value = ''
 }
 
 // Handle permission response

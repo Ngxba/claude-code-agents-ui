@@ -79,8 +79,8 @@ const menuSearchQuery = ref('')
 
 const menuItems = computed(() => {
   const items = [
-    ...allCommands.value.map(c => ({ type: 'command' as const, name: c.frontmatter.name, description: c.frontmatter.description, slug: c.slug, directory: c.directory })),
-    ...allSkills.value.map(s => ({ type: 'skill' as const, name: s.frontmatter.name, description: s.frontmatter.description, slug: s.slug })),
+    ...allCommands.value.map(c => ({ type: 'command' as const, name: c.frontmatter.name, description: c.frontmatter.description, slug: c.slug, directory: c.directory, filePath: c.filePath })),
+    ...allSkills.value.map(s => ({ type: 'skill' as const, name: s.frontmatter.name, description: s.frontmatter.description, slug: s.slug, filePath: s.filePath })),
     ...builtinCommands.map(b => ({ type: 'builtin' as const, name: b.name, description: b.description, slug: b.name, argumentHint: b.argumentHint })),
   ]
 

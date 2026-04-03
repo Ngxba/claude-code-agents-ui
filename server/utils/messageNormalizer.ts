@@ -85,6 +85,21 @@ export function normalizeSDKMessage(
     }
   }
 
+  // Handle system messages (local command output from slash commands)
+  if (sdkMessage.type === 'system') {
+    if (sdkMessage.subtype === 'local_command_output') {
+      messages.push({
+        kind: 'text',
+        id: sdkMessage.uuid || randomUUID(),
+        sessionId,
+        timestamp,
+        role: 'assistant',
+        content: sdkMessage.content || '',
+      })
+    }
+    // Other system subtypes (init, etc.) are silently ignored
+  }
+
   // Handle tool progress (Anthropic SDK tool execution)
   if (sdkMessage.type === 'tool_progress') {
     messages.push({

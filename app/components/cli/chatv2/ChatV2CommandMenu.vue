@@ -6,6 +6,7 @@ interface MenuItem {
   slug: string
   directory?: string
   argumentHint?: string
+  filePath?: string
 }
 
 const props = defineProps<{
