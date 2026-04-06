@@ -81,7 +81,7 @@ const currentColor = computed(() => getAgentColor(props.frontmatter.color))
       </button>
     </div>
 
-    <div v-if="activeTab === 'instructions'" class="flex-1 min-h-0">
+    <div v-if="activeTab === 'instructions'" class="flex-1 min-h-0 flex flex-col">
       <InstructionEditor :model-value="body" :agent-name="frontmatter.name" :agent-description="frontmatter.description" @update:model-value="emit('update:body', $event)" />
     </div>
 

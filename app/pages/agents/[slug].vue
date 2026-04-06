@@ -207,7 +207,7 @@ useUnsavedChanges(isDirty)
     <div v-else class="flex-1 flex min-h-0">
       <!-- Left: Editor -->
       <div 
-        class="flex flex-col transition-all duration-300 ease-in-out" 
+        class="flex flex-col min-h-0 transition-all duration-300 ease-in-out"
         :class="isTestPanelOpen ? 'w-[70%] border-r' : 'w-full'"
         style="border-color: var(--border-subtle);"
       >
