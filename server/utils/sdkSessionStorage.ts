@@ -2,9 +2,12 @@ import fs from 'node:fs/promises'
 import { existsSync, createReadStream } from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'
-import os from 'node:os'
 import { getClaudeDir } from './claudeDir'
 import type { NormalizedMessage } from '~/types'
+
+function isSessionStorageFile(fileName: string): boolean {
+  return fileName.endsWith('.jsonl') && !fileName.startsWith('agent-')
+}
 
 /**
  * Get SDK session messages from Claude Code projects
@@ -28,16 +31,14 @@ export async function loadSdkSessionMessages(
 
   try {
     const files = await fs.readdir(projectDir)
-    // Filter for JSONL files, excluding agent-* files (those are separate)
-    const jsonlFiles = files.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'))
+    const jsonlFiles = files.filter(isSessionStorageFile)
 
     if (jsonlFiles.length === 0) {
       return { messages: [], total: 0, hasMore: false }
     }
 
-    const messages: any[] = []
+    const messages: NormalizedMessage[] = []
 
-    // Process all JSONL files to find messages for this session
     for (const file of jsonlFiles) {
       const jsonlFile = path.join(projectDir, file)
       const fileStream = createReadStream(jsonlFile)
@@ -49,19 +50,17 @@ export async function loadSdkSessionMessages(
       for await (const line of rl) {
         if (line.trim()) {
           try {
-            const entry = JSON.parse(line)
-            // Match messages by sessionId
-            if (entry.sessionId === sessionId) {
+            const entry = JSON.parse(line) as NormalizedMessage
+            if ((entry as any).sessionId === sessionId) {
               messages.push(entry)
             }
-          } catch (parseError) {
+          } catch {
             // Silently skip malformed JSONL lines (common with concurrent writes)
           }
         }
       }
     }
 
-    // Sort messages by timestamp (oldest to newest)
     const sortedMessages = messages.sort((a, b) =>
       new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()
     )
@@ -70,12 +69,10 @@ export async function loadSdkSessionMessages(
     const limit = options.limit ?? null
     const offset = options.offset ?? 0
 
-    // If no limit, return all messages
     if (limit === null) {
       return { messages: sortedMessages, total, hasMore: false }
     }
 
-    // Apply pagination - offset 0 should give most recent messages
     const startIndex = Math.max(0, total - offset - limit)
     const endIndex = total - offset
     const paginatedMessages = sortedMessages.slice(startIndex, endIndex)
@@ -120,7 +117,7 @@ export async function detectSdkSession(sessionId: string): Promise<string | null
       if (!stat.isDirectory()) continue
 
       const files = await fs.readdir(projectDir)
-      const jsonlFiles = files.filter(f => f.endsWith('.jsonl') && !f.startsWith('agent-'))
+      const jsonlFiles = files.filter(isSessionStorageFile)
 
       for (const file of jsonlFiles) {
         const jsonlFile = path.join(projectDir, file)
@@ -133,7 +130,6 @@ export async function detectSdkSession(sessionId: string): Promise<string | null
         let found = false
         for await (const line of rl) {
           if (line.includes(sessionId)) {
-            // Quick string check before expensive JSON.parse
             try {
               const entry = JSON.parse(line)
               if (entry.sessionId === sessionId) {
@@ -161,4 +157,3 @@ export async function detectSdkSession(sessionId: string): Promise<string | null
     return null
   }
 }
-

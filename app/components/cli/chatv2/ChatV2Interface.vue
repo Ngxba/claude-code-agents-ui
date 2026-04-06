@@ -44,8 +44,16 @@ onMounted(() => {
   loadProviders()
 })
 
+const currentProviderEntry = computed(() =>
+  providers.value.find(p => p.name === selectedProvider.value)
+)
+
+const currentProviderLabel = computed(() =>
+  currentProviderEntry.value?.displayName || selectedProvider.value || 'Claude'
+)
+
 const mappedModelOptions = computed(() => {
-  const provider = providers.value.find(p => p.name === selectedProvider.value)
+  const provider = currentProviderEntry.value
   const mappings = provider?.modelMappings
   if (!mappings) return MODEL_OPTIONS_CHAT
 
@@ -320,18 +328,24 @@ const displayMessages = computed<DisplayChatMessage[]>(() => {
 
   // If viewing Claude Code history
   if (viewMode.value === 'history') {
-    const historyMessages = convertClaudeCodeMessages(claudeCodeMessages.value)
-    
+    const historyMessages = convertClaudeCodeMessages(claudeCodeMessages.value, {
+      fallbackProvider: history.selectedSession.value?.model ? 'Claude' : undefined,
+      fallbackModel: history.selectedSession.value?.model,
+    })
+
     // Always check for live messages if we have a session ID
     if (liveSessionId) {
       const liveMessages = sessionStore.getMessages(liveSessionId)
       // If we have live messages or streaming text, combine them
       if (liveMessages.length > 0 || streamingText.value) {
-        const newMessages = convertToDisplayMessages(liveMessages, streamingText.value)
+        const newMessages = convertToDisplayMessages(liveMessages, streamingText.value, {
+          fallbackProvider: currentProviderLabel.value,
+          fallbackModel: selectedModel.value,
+        })
         return [...historyMessages, ...newMessages]
       }
     }
-    
+
     return historyMessages
   }
 
@@ -341,7 +355,10 @@ const displayMessages = computed<DisplayChatMessage[]>(() => {
   }
 
   const messages = sessionStore.getMessages(liveSessionId)
-  return convertToDisplayMessages(messages, streamingText.value)
+  return convertToDisplayMessages(messages, streamingText.value, {
+    fallbackProvider: currentProviderLabel.value,
+    fallbackModel: selectedModel.value,
+  })
 })
 
 // Fetch sessions on mount (no automatic WebSocket connection - connect lazily when sending)

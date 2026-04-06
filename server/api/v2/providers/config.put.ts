@@ -21,13 +21,16 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Cannot override built-in provider.' })
     }
 
-    // '__unchanged__' sentinel: keep existing auth token
+    const idx = config.providers.findIndex(p => p.name === entry.name)
+    const existing = idx >= 0 ? config.providers[idx] : undefined
+
     if (entry.authToken === '__unchanged__') {
-      const existing = config.providers.find(p => p.name === entry.name)
-      entry.authToken = existing?.authToken
+      if (!existing?.authToken) {
+        throw createError({ statusCode: 400, message: 'authToken required when creating new provider.' })
+      }
+      entry.authToken = existing.authToken
     }
 
-    const idx = config.providers.findIndex(p => p.name === entry.name)
     if (idx >= 0) {
       config.providers[idx] = entry
     }
@@ -38,9 +41,23 @@ export default defineEventHandler(async (event) => {
     if (entry.baseUrl && entry.authToken) {
       providerRegistry.register(new CustomAnthropicProvider(entry), customProviderInfo(entry))
     }
+    else {
+      providerRegistry.deregister(entry.name)
+      if (config.defaultProvider === entry.name) {
+        config.defaultProvider = 'claude'
+        providerRegistry.setDefault('claude')
+      }
+    }
   }
 
   if (body.defaultProvider) {
+    const providerExists = config.providers.some(provider => provider.name === body.defaultProvider)
+      || providerRegistry.has(body.defaultProvider)
+
+    if (!providerExists) {
+      throw createError({ statusCode: 400, message: `Provider '${body.defaultProvider}' not found.` })
+    }
+
     config.defaultProvider = body.defaultProvider
     if (providerRegistry.has(body.defaultProvider)) {
       providerRegistry.setDefault(body.defaultProvider)

@@ -47,11 +47,28 @@ export function useProviderConfig() {
 
   /** Switch the active provider and persist as default. */
   async function switchProvider(providerName: string) {
+    const previousProvider = selectedProvider.value
+    const previousDefaultProvider = config.value?.defaultProvider
+
     selectedProvider.value = providerName
-    await $fetch('/api/v2/providers/config', {
-      method: 'PUT',
-      body: { defaultProvider: providerName },
-    })
+
+    try {
+      await $fetch('/api/v2/providers/config', {
+        method: 'PUT',
+        body: { defaultProvider: providerName },
+      })
+
+      if (config.value) {
+        config.value.defaultProvider = providerName
+      }
+    }
+    catch (error) {
+      selectedProvider.value = previousProvider
+      if (config.value && previousDefaultProvider) {
+        config.value.defaultProvider = previousDefaultProvider
+      }
+      throw error
+    }
   }
 
   const customProviders = computed(

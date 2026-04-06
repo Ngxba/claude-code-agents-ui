@@ -470,6 +470,8 @@ export interface DisplayChatMessage {
   taskProgress?: TaskProgress
   interactivePrompt?: InteractivePrompt
   isStreaming?: boolean
+  provider?: string
+  model?: string
 }
 
 export interface TaskProgress {

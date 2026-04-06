@@ -6,6 +6,25 @@ const props = defineProps<{
   isStreaming?: boolean
 }>()
 
+function formatAssistantLabel(message?: DisplayChatMessage): string {
+  const provider = message?.provider?.trim()
+  const model = message?.model?.trim()
+
+  if (provider && model) {
+    return `${provider} (${model})`
+  }
+
+  if (provider) {
+    return provider
+  }
+
+  if (model) {
+    return `Claude (${model})`
+  }
+
+  return 'Claude'
+}
+
 const emit = defineEmits<{
   (e: 'permissionRespond', permissionId: string, decision: 'allow' | 'deny', remember?: boolean): void
   (e: 'openFile', filePath: string): void
@@ -145,7 +164,7 @@ function handleOpenFile(filePath: string) {
         <div class="flex-1 min-w-0 overflow-wrap-anywhere">
           <!-- Claude Header -->
           <div class="flex items-center gap-2 mb-1.5 md:mb-2">
-            <span class="text-[12px] md:text-[13px] font-semibold" style="color: var(--text-primary);">Claude</span>
+            <span class="text-[12px] md:text-[13px] font-semibold" style="color: var(--text-primary);">{{ formatAssistantLabel(group.messages[0]) }}</span>
             <ClientOnly>
               <span class="text-[9px] md:text-[10px]" style="color: var(--text-tertiary);">
                 {{ new Date(group.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
@@ -185,7 +204,7 @@ function handleOpenFile(filePath: string) {
 
       <div class="flex-1">
         <div class="flex items-center gap-2 mb-2">
-          <span class="text-[13px] font-semibold" style="color: var(--text-primary);">Claude</span>
+          <span class="text-[13px] font-semibold" style="color: var(--text-primary);">{{ formatAssistantLabel(messageGroups[messageGroups.length - 1]?.messages[0]) }}</span>
         </div>
         <div class="flex items-center gap-2 text-[13px]" style="color: var(--text-secondary);">
           <span class="thinking-dots">

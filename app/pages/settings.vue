@@ -20,6 +20,7 @@ interface ProviderFormState {
   displayName: string
   baseUrl: string
   authToken: string
+  authTokenUnchanged: boolean
   modelMappings: { opus: string; sonnet: string; haiku: string }
   error: string
   showToken: boolean
@@ -30,7 +31,7 @@ const openAccordions = ref<Set<string>>(new Set())
 const confirmDelete = ref<string | null>(null)
 
 function makeEmptyForm(): ProviderFormState {
-  return { displayName: '', baseUrl: '', authToken: '', modelMappings: { opus: '', sonnet: '', haiku: '' }, error: '', showToken: false }
+  return { displayName: '', baseUrl: '', authToken: '', authTokenUnchanged: false, modelMappings: { opus: '', sonnet: '', haiku: '' }, error: '', showToken: false }
 }
 
 watch(customProviders, (providers) => {
@@ -39,7 +40,8 @@ watch(customProviders, (providers) => {
       providerForms[p.name] = {
         displayName: p.displayName,
         baseUrl: p.baseUrl ?? '',
-        authToken: '__unchanged__',
+        authToken: '',
+        authTokenUnchanged: true,
         modelMappings: { opus: p.modelMappings?.opus ?? '', sonnet: p.modelMappings?.sonnet ?? '', haiku: p.modelMappings?.haiku ?? '' },
         error: '',
         showToken: false,
@@ -86,7 +88,7 @@ async function handleSaveProvider(slug: string) {
 
   if (isNew) {
     if (!effectiveSlug || !/^[a-z0-9-]+$/.test(effectiveSlug)) {
-      form.error = 'Provider Name is required and must contain letters/numbers only'
+      form.error = 'Provider Name is required and must contain lowercase letters, numbers, and hyphens only'
       return
     }
     if (customProviders.value.find(p => p.name === effectiveSlug)) {
@@ -95,14 +97,14 @@ async function handleSaveProvider(slug: string) {
     }
   }
   if (!form.baseUrl) { form.error = 'Base URL is required'; return }
-  if (!form.authToken) { form.error = 'Auth Token is required'; return }
+  if (!form.authToken && !form.authTokenUnchanged) { form.error = 'Auth Token is required'; return }
   try { new URL(form.baseUrl) } catch { form.error = 'Base URL must be a valid URL'; return }
 
   await saveProvider({
     name: effectiveSlug,
     displayName: form.displayName || effectiveSlug,
     baseUrl: form.baseUrl,
-    authToken: form.authToken,
+    authToken: form.authTokenUnchanged ? '__unchanged__' : form.authToken,
     modelMappings: {
       ...(form.modelMappings.opus ? { opus: form.modelMappings.opus } : {}),
       ...(form.modelMappings.sonnet ? { sonnet: form.modelMappings.sonnet } : {}),
@@ -703,6 +705,7 @@ const lineCount = computed(() => rawJson.value.split('\n').length)
                     :type="providerForms[p.name]!.showToken ? 'text' : 'password'"
                     class="field-input pr-10"
                     placeholder="sk-***"
+                    @input="providerForms[p.name]!.authTokenUnchanged = false"
                   />
                   <button
                     type="button"
@@ -779,6 +782,7 @@ const lineCount = computed(() => rawJson.value.split('\n').length)
                     :type="providerForms.__new__!.showToken ? 'text' : 'password'"
                     class="field-input pr-10"
                     placeholder="sk-***"
+                    @input="providerForms.__new__!.authTokenUnchanged = false"
                   />
                   <button
                     type="button"
