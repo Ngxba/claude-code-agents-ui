@@ -656,9 +656,8 @@ const lineCount = computed(() => rawJson.value.split('\n').length)
             style="border: 1px solid var(--border-subtle);"
           >
             <!-- Accordion header -->
-            <button
-              type="button"
-              class="w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-hover)]"
+            <div
+              class="w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-hover)] cursor-pointer"
               style="background: var(--surface-raised);"
               @click="toggleAccordion(p.name)"
             >
@@ -680,7 +679,7 @@ const lineCount = computed(() => rawJson.value.split('\n').length)
               >
                 {{ confirmDelete === p.name ? 'Confirm?' : 'Delete' }}
               </button>
-            </button>
+            </div>
 
             <!-- Accordion body -->
             <div v-if="openAccordions.has(p.name) && providerForms[p.name]" class="px-4 py-3 space-y-3" style="border-top: 1px solid var(--border-subtle);">
@@ -751,7 +750,7 @@ const lineCount = computed(() => rawJson.value.split('\n').length)
           >
             <button
               type="button"
-              class="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-hover)]"
+              class="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-hover)] cursor-pointer"
               style="background: var(--surface-raised);"
               @click="toggleAccordion('__new__')"
             >

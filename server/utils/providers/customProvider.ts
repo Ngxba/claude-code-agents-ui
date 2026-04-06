@@ -8,12 +8,13 @@ import { MODEL_ALIAS } from '../models'
 import type { ProviderEntry } from './providerConfig'
 
 export class CustomAnthropicProvider implements ProviderAdapter {
-  name = 'custom'
+  name: string
   private entry: ProviderEntry
   private activeControllers = new Map<string, AbortController>()
 
   constructor(entry: ProviderEntry) {
     this.entry = entry
+    this.name = entry.name
   }
 
   private resolveModel(tier: string): string {
@@ -55,17 +56,17 @@ export class CustomAnthropicProvider implements ProviderAdapter {
             sessionId,
             timestamp: new Date().toISOString(),
             content: event.delta.text,
-            provider: 'custom',
+            provider: this.name,
           })
         }
       }
 
-      send({ kind: 'stream_end', id: randomUUID(), sessionId, timestamp: new Date().toISOString(), content: '', provider: 'custom' })
-      send({ kind: 'complete', id: randomUUID(), sessionId, timestamp: new Date().toISOString(), content: '', provider: 'custom' })
+      send({ kind: 'stream_end', id: randomUUID(), sessionId, timestamp: new Date().toISOString(), content: '', provider: this.name })
+      send({ kind: 'complete', id: randomUUID(), sessionId, timestamp: new Date().toISOString(), content: '', provider: this.name })
     }
     catch (err: any) {
       if (err.name !== 'AbortError') {
-        send({ kind: 'error', id: randomUUID(), sessionId, timestamp: new Date().toISOString(), content: err.message ?? 'Unknown error', provider: 'custom' })
+        send({ kind: 'error', id: randomUUID(), sessionId, timestamp: new Date().toISOString(), content: err.message ?? 'Unknown error', provider: this.name })
       }
     }
     finally {
@@ -92,7 +93,7 @@ export class CustomAnthropicProvider implements ProviderAdapter {
 
 export function customProviderInfo(entry: ProviderEntry): ProviderInfo {
   return {
-    name: 'custom',
+    name: entry.name,
     displayName: entry.displayName || 'Custom Provider',
     description: `Custom Anthropic-compatible provider at ${entry.baseUrl ?? ''}`,
     models: ['opus', 'sonnet', 'haiku'],

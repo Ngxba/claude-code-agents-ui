@@ -38,15 +38,16 @@ const {
 } = useChatV2Handler()
 
 // Provider config
-const { load: loadProviders, providers, selectedProvider, switchProvider, customEntry } = useProviderConfig()
+const { load: loadProviders, providers, selectedProvider, switchProvider } = useProviderConfig()
 
 onMounted(() => {
   loadProviders()
 })
 
 const mappedModelOptions = computed(() => {
-  const mappings = customEntry.value?.modelMappings
-  if (selectedProvider.value !== 'custom' || !mappings) return MODEL_OPTIONS_CHAT
+  const provider = providers.value.find(p => p.name === selectedProvider.value)
+  const mappings = provider?.modelMappings
+  if (!mappings) return MODEL_OPTIONS_CHAT
 
   return MODEL_OPTIONS_CHAT.map(opt => {
     const mapped = mappings[opt.value as 'opus' | 'sonnet' | 'haiku']
