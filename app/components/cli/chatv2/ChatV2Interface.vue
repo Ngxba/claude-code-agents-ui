@@ -37,6 +37,34 @@ const {
   contextMonitor,
 } = useChatV2Handler()
 
+// Provider config
+const { load: loadProviders, providers, selectedProvider, switchProvider } = useProviderConfig()
+
+onMounted(() => {
+  loadProviders()
+})
+
+const currentProviderEntry = computed(() =>
+  providers.value.find(p => p.name === selectedProvider.value)
+)
+
+const currentProviderLabel = computed(() =>
+  currentProviderEntry.value?.displayName || selectedProvider.value || 'Claude'
+)
+
+const mappedModelOptions = computed(() => {
+  const provider = currentProviderEntry.value
+  const mappings = provider?.modelMappings
+  if (!mappings) return MODEL_OPTIONS_CHAT
+
+  return MODEL_OPTIONS_CHAT.map(opt => {
+    const mapped = mappings[opt.value as 'opus' | 'sonnet' | 'haiku']
+    return mapped
+      ? { ...opt, label: `${opt.label} · ${mapped}`, description: mapped }
+      : opt
+  })
+})
+
 // Claude Code history
 const history = useClaudeCodeHistory()
 const {
@@ -300,18 +328,24 @@ const displayMessages = computed<DisplayChatMessage[]>(() => {
 
   // If viewing Claude Code history
   if (viewMode.value === 'history') {
-    const historyMessages = convertClaudeCodeMessages(claudeCodeMessages.value)
-    
+    const historyMessages = convertClaudeCodeMessages(claudeCodeMessages.value, {
+      fallbackProvider: history.selectedSession.value?.model ? 'Claude' : undefined,
+      fallbackModel: history.selectedSession.value?.model,
+    })
+
     // Always check for live messages if we have a session ID
     if (liveSessionId) {
       const liveMessages = sessionStore.getMessages(liveSessionId)
       // If we have live messages or streaming text, combine them
       if (liveMessages.length > 0 || streamingText.value) {
-        const newMessages = convertToDisplayMessages(liveMessages, streamingText.value)
+        const newMessages = convertToDisplayMessages(liveMessages, streamingText.value, {
+          fallbackProvider: currentProviderLabel.value,
+          fallbackModel: selectedModel.value,
+        })
         return [...historyMessages, ...newMessages]
       }
     }
-    
+
     return historyMessages
   }
 
@@ -321,7 +355,10 @@ const displayMessages = computed<DisplayChatMessage[]>(() => {
   }
 
   const messages = sessionStore.getMessages(liveSessionId)
-  return convertToDisplayMessages(messages, streamingText.value)
+  return convertToDisplayMessages(messages, streamingText.value, {
+    fallbackProvider: currentProviderLabel.value,
+    fallbackModel: selectedModel.value,
+  })
 })
 
 // Fetch sessions on mount (no automatic WebSocket connection - connect lazily when sending)
@@ -908,6 +945,7 @@ function sendRegularMessage(text: string, images: string[]) {
       model: selectedModel.value,
       effort: effortLevel.value,
       images,
+      provider: selectedProvider.value,
     })
     return
   }
@@ -919,6 +957,7 @@ function sendRegularMessage(text: string, images: string[]) {
     model: selectedModel.value,
     effort: effortLevel.value,
     images,
+    provider: selectedProvider.value,
   })
 }
 
@@ -1125,11 +1164,19 @@ function handleOpenFile(filePath: string) {
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
+          <!-- Provider Selector -->
+          <ChatV2ProviderSelector
+            v-if="(viewMode === 'history' && urlSessionId) || (viewMode === 'live' && isLiveChat)"
+            :model-value="selectedProvider"
+            :options="providers"
+            @update:model-value="switchProvider"
+          />
+
           <!-- Model Selector -->
           <ChatV2ModelSelector
             v-if="(viewMode === 'history' && urlSessionId) || (viewMode === 'live' && isLiveChat)"
             v-model="selectedModel"
-            :options="MODEL_OPTIONS_CHAT"
+            :options="mappedModelOptions"
           />
 
           <!-- Permission Mode Selector (only when viewing a specific chat session) -->

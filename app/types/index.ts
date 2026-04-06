@@ -470,6 +470,8 @@ export interface DisplayChatMessage {
   taskProgress?: TaskProgress
   interactivePrompt?: InteractivePrompt
   isStreaming?: boolean
+  provider?: string
+  model?: string
 }
 
 export interface TaskProgress {
@@ -575,4 +577,20 @@ export interface ProviderFetchResult {
   total: number
   hasMore: boolean
   tokenUsage?: TokenUsage
+}
+
+// ── Custom Provider Config ─────────────────────────────
+
+export interface ProviderEntry {
+  name: string
+  displayName: string
+  builtIn?: boolean
+  baseUrl?: string
+  authToken?: string
+  modelMappings?: Partial<Record<'opus' | 'sonnet' | 'haiku', string>>
+}
+
+export interface ProviderConfig {
+  defaultProvider: string
+  providers: ProviderEntry[]
 }

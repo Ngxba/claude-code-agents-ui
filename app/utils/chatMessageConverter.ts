@@ -16,7 +16,11 @@ import type {
  */
 export function convertToDisplayMessages(
   messages: NormalizedMessage[],
-  streamingText?: string
+  streamingText?: string,
+  options: {
+    fallbackProvider?: string
+    fallbackModel?: string
+  } = {}
 ): DisplayChatMessage[] {
   const displayMessages: DisplayChatMessage[] = []
   const toolResultsMap = new Map<string, any>()
@@ -55,7 +59,7 @@ export function convertToDisplayMessages(
     }
 
     // Convert to display message
-    const displayMsg = convertSingleMessage(msg, toolResultsMap)
+    const displayMsg = convertSingleMessage(msg, toolResultsMap, options)
     if (displayMsg) {
       displayMessages.push(displayMsg)
     }
@@ -70,6 +74,8 @@ export function convertToDisplayMessages(
       content: streamingText,
       timestamp: new Date().toISOString(),
       isStreaming: true,
+      provider: options.fallbackProvider,
+      model: options.fallbackModel,
     })
   }
 
@@ -81,13 +87,19 @@ export function convertToDisplayMessages(
  */
 function convertSingleMessage(
   msg: NormalizedMessage,
-  toolResultsMap: Map<string, any>
+  toolResultsMap: Map<string, any>,
+  options: {
+    fallbackProvider?: string
+    fallbackModel?: string
+  } = {}
 ): DisplayChatMessage | null {
   const base: Partial<DisplayChatMessage> = {
     id: msg.id,
     kind: msg.kind,
     timestamp: msg.timestamp,
     images: msg.images,
+    provider: msg.provider || options.fallbackProvider,
+    model: (msg.metadata?.model as string | undefined) || options.fallbackModel,
   }
 
   switch (msg.kind) {

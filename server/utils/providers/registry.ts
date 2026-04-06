@@ -69,6 +69,16 @@ class ProviderRegistry {
   }
 
   /**
+   * Deregister a provider by name. Built-in providers cannot be deregistered.
+   */
+  deregister(name: string): void {
+    if (name === 'claude') return // built-in, never remove
+    this.providers.delete(name)
+    this.providerInfo.delete(name)
+    console.log(`[ProviderRegistry] Deregistered provider: ${name}`)
+  }
+
+  /**
    * Get all registered provider names
    */
   getNames(): string[] {

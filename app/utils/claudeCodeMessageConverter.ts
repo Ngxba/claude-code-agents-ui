@@ -39,6 +39,9 @@ interface ClaudeCodeMessage {
   toolName?: string
   toolInput?: unknown
   toolUseResult?: unknown
+  provider?: string
+  model?: string
+  metadata?: Record<string, unknown>
   [key: string]: unknown
 }
 
@@ -79,10 +82,30 @@ function extractToolResultContent(content: string | Array<{ type: string; text?:
   return ''
 }
 
+function getMessageModel(msg: ClaudeCodeMessage, fallbackModel?: string): string | undefined {
+  if (typeof msg.model === 'string' && msg.model.trim()) return msg.model
+  const metadataModel = msg.metadata?.model
+  if (typeof metadataModel === 'string' && metadataModel.trim()) return metadataModel
+  return fallbackModel
+}
+
+function getMessageProvider(msg: ClaudeCodeMessage, fallbackProvider?: string): string | undefined {
+  if (typeof msg.provider === 'string' && msg.provider.trim()) return msg.provider
+  const metadataProvider = msg.metadata?.provider
+  if (typeof metadataProvider === 'string' && metadataProvider.trim()) return metadataProvider
+  return fallbackProvider
+}
+
 /**
  * Convert Claude Code messages to DisplayChatMessage format
  */
-export function convertClaudeCodeMessages(messages: ClaudeCodeMessage[]): DisplayChatMessage[] {
+export function convertClaudeCodeMessages(
+  messages: ClaudeCodeMessage[],
+  options: {
+    fallbackProvider?: string
+    fallbackModel?: string
+  } = {}
+): DisplayChatMessage[] {
   const displayMessages: DisplayChatMessage[] = []
 
   // First pass: collect tool results by tool_use_id
@@ -136,7 +159,9 @@ export function convertClaudeCodeMessages(messages: ClaudeCodeMessage[]): Displa
           role: 'user',
           content: textContent,
           timestamp: msg.timestamp,
-          kind: 'text'
+          kind: 'text',
+          provider: getMessageProvider(msg, options.fallbackProvider),
+          model: getMessageModel(msg, options.fallbackModel)
         })
       }
     }
@@ -153,7 +178,9 @@ export function convertClaudeCodeMessages(messages: ClaudeCodeMessage[]): Displa
               content: block.thinking,
               timestamp: msg.timestamp,
               kind: 'thinking',
-              thinking: block.thinking
+              thinking: block.thinking,
+              provider: getMessageProvider(msg, options.fallbackProvider),
+              model: getMessageModel(msg, options.fallbackModel)
             })
           }
 
@@ -169,7 +196,9 @@ export function convertClaudeCodeMessages(messages: ClaudeCodeMessage[]): Displa
               role: 'assistant',
               content: block.text,
               timestamp: msg.timestamp,
-              kind: 'text'
+              kind: 'text',
+              provider: getMessageProvider(msg, options.fallbackProvider),
+              model: getMessageModel(msg, options.fallbackModel)
             })
           }
 
@@ -188,7 +217,9 @@ export function convertClaudeCodeMessages(messages: ClaudeCodeMessage[]): Displa
               toolResult: toolResult ? {
                 content: toolResult.content,
                 isError: toolResult.isError
-              } : undefined
+              } : undefined,
+              provider: getMessageProvider(msg, options.fallbackProvider),
+              model: getMessageModel(msg, options.fallbackModel)
             })
           }
         }
@@ -200,7 +231,9 @@ export function convertClaudeCodeMessages(messages: ClaudeCodeMessage[]): Displa
             role: 'assistant',
             content: content,
             timestamp: msg.timestamp,
-            kind: 'text'
+            kind: 'text',
+            provider: getMessageProvider(msg),
+            model: getMessageModel(msg)
           })
         }
       }
@@ -216,7 +249,9 @@ export function convertClaudeCodeMessages(messages: ClaudeCodeMessage[]): Displa
         kind: 'tool_use',
         toolName: msg.toolName,
         toolInput: msg.toolInput,
-        toolResult: msg.toolUseResult
+        toolResult: msg.toolUseResult,
+        provider: getMessageProvider(msg),
+        model: getMessageModel(msg)
       })
     }
   }
