@@ -1,4 +1,5 @@
 import { resolveClaudePath } from './claudeDir'
+import { safeClaudePath } from './path-security'
 
 /**
  * Decode an agent slug into its directory and base name.
@@ -10,6 +11,11 @@ import { resolveClaudePath } from './claudeDir'
  * may contain single '-' but not '--'.
  */
 export function decodeAgentSlug(slug: string): { directory: string; name: string } {
+  // Reject path traversal in slug segments
+  if (slug.includes('..') || slug.includes('/') || slug.includes('\\')) {
+    throw createError({ statusCode: 400, message: 'Invalid slug: contains path traversal characters' })
+  }
+
   const idx = slug.lastIndexOf('--')
   if (idx === -1) return { directory: '', name: slug }
   return {
@@ -31,11 +37,12 @@ export function encodeAgentSlug(directory: string, name: string): string {
 
 /**
  * Resolve the absolute file path for an agent given its slug.
+ * Uses safeClaudePath to prevent path traversal.
  */
 export function resolveAgentFilePath(slug: string): string {
   const { directory, name } = decodeAgentSlug(slug)
   if (directory) {
-    return resolveClaudePath('agents', ...directory.split('/'), `${name}.md`)
+    return safeClaudePath('agents', ...directory.split('/'), `${name}.md`)
   }
-  return resolveClaudePath('agents', `${name}.md`)
+  return safeClaudePath('agents', `${name}.md`)
 }

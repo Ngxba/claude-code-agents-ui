@@ -6,6 +6,7 @@ import type { NormalizedMessage, ProviderFetchOptions } from '~/types'
 import type { ProviderAdapter, ProviderQueryOptions, ProviderInfo } from './types'
 import { normalizeSDKMessage } from '../messageNormalizer'
 import { resolveClaudePath } from '../claudeDir'
+import { safeClaudePath } from '../path-security'
 import { parseFrontmatter } from '../frontmatter'
 import { detectSdkSession, loadSdkSessionMessages } from '../sdkSessionStorage'
 import { MODEL_ALIAS_KEY } from '../models'
@@ -34,7 +35,7 @@ function mapPermissionMode(mode?: string): string {
     case 'plan':
       return 'plan'
     default:
-      return 'bypassPermissions' // Default for chat v2
+      return 'default' // Safe default — require explicit opt-in for bypassPermissions
   }
 }
 
@@ -235,7 +236,7 @@ export const claudeProvider: ProviderAdapter = {
 
   async loadAgentInstructions(agentSlug: string): Promise<string | null> {
     try {
-      const agentPath = resolveClaudePath('agents', `${agentSlug}.md`)
+      const agentPath = safeClaudePath('agents', `${agentSlug}.md`)
       const content = await fs.readFile(agentPath, 'utf-8')
       const { body } = parseFrontmatter(content)
       return body || null

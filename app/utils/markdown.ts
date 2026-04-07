@@ -1,5 +1,18 @@
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { protectMathBlocks, restoreMathBlocks } from './messageFormatting'
+
+/**
+ * Sanitize HTML output to prevent XSS.
+ * Allows safe markdown-generated tags while stripping scripts and event handlers.
+ */
+function sanitizeHtml(html: string): string {
+  if (typeof window === 'undefined') return html // SSR: no DOM available
+  return DOMPurify.sanitize(html, {
+    ADD_TAGS: ['math', 'mrow', 'mi', 'mo', 'mn', 'msup', 'msub', 'mfrac', 'munderover'],
+    ADD_ATTR: ['data-lang', 'class', 'style'],
+  })
+}
 
 // ── Shiki syntax highlighting ──────────────────────────────────────────────
 
@@ -33,9 +46,12 @@ export async function highlightCode(code: string, lang: string): Promise<string>
 
   const resolvedLang = SUPPORTED_LANGS.has(language) ? language : 'text'
 
+  // Escape lang attribute to prevent HTML injection
+  const safeLang = (lang || '').replace(/['"<>&]/g, '')
+
   if (import.meta.server) {
     const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    return `<div class="shiki-wrapper" data-lang="${lang || ''}"><pre><code>${escaped}</code></pre></div>`
+    return `<div class="shiki-wrapper" data-lang="${safeLang}"><pre><code>${escaped}</code></pre></div>`
   }
 
   try {
@@ -48,13 +64,13 @@ export async function highlightCode(code: string, lang: string): Promise<string>
     })
 
     // Add language label and copy wrapper
-    const withLabel = `<div class="shiki-wrapper" data-lang="${lang || ''}">${html}</div>`
+    const withLabel = `<div class="shiki-wrapper" data-lang="${safeLang}">${html}</div>`
     highlightedCache.set(cacheKey, withLabel)
     return withLabel
   } catch {
     // Fallback: plain fenced block
     const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const fallback = `<div class="shiki-wrapper" data-lang="${lang || ''}"><pre style="background:#1e1e2e;border-radius:0.5rem;padding:1rem;overflow-x:auto;"><code>${escaped}</code></pre></div>`
+    const fallback = `<div class="shiki-wrapper" data-lang="${safeLang}"><pre style="background:#1e1e2e;border-radius:0.5rem;padding:1rem;overflow-x:auto;"><code>${escaped}</code></pre></div>`
     highlightedCache.set(cacheKey, fallback)
     return fallback
   }
@@ -71,7 +87,7 @@ export async function renderMarkdownAsync(text: string): Promise<string> {
   const { text: protectedText, blocks } = protectMathBlocks(text)
   let html = await marked.parse(protectedText, { async: false }) as string
   html = restoreMathBlocks(html, blocks)
-  return html
+  return sanitizeHtml(html)
 }
 
 // ── Synchronous fallback renderer ──────────────────────────────────────────
@@ -87,7 +103,7 @@ marked.use({
  */
 export function renderMarkdown(text: string): string {
   if (!text) return ''
-  return marked.parse(text) as string
+  return sanitizeHtml(marked.parse(text) as string)
 }
 
 /**
@@ -98,7 +114,7 @@ export function renderMarkdownWithMath(text: string): string {
   const { text: protectedText, blocks } = protectMathBlocks(text)
   let html = marked.parse(protectedText) as string
   html = restoreMathBlocks(html, blocks)
-  return html
+  return sanitizeHtml(html)
 }
 
 /**
@@ -133,7 +149,7 @@ export async function renderMarkdownWithHighlighting(text: string): Promise<stri
   )
 
   html = restoreMathBlocks(html, blocks)
-  return html
+  return sanitizeHtml(html)
 }
 
 /**
@@ -141,7 +157,7 @@ export async function renderMarkdownWithHighlighting(text: string): Promise<stri
  */
 export function renderMarkdownInline(text: string): string {
   if (!text) return ''
-  return marked.parseInline(text) as string
+  return sanitizeHtml(marked.parseInline(text) as string)
 }
 
 /**

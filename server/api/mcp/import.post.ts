@@ -25,6 +25,62 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Invalid MCP configuration format' })
   }
 
+  // Validate each MCP server config entry
+  for (const [name, config] of Object.entries(newServers)) {
+    if (typeof name !== 'string' || !name.match(/^[a-zA-Z0-9_-]+$/)) {
+      throw createError({ statusCode: 400, message: `Invalid server name: ${name}` })
+    }
+
+    const cfg = config as Record<string, unknown>
+    if (typeof cfg !== 'object' || cfg === null) {
+      throw createError({ statusCode: 400, message: `Invalid config for server: ${name}` })
+    }
+
+    // Must have either 'command' (stdio) or 'url' (SSE/streamable-http) — not arbitrary fields
+    const hasCommand = typeof cfg.command === 'string'
+    const hasUrl = typeof cfg.url === 'string'
+    if (!hasCommand && !hasUrl) {
+      throw createError({ statusCode: 400, message: `Server "${name}" must have a "command" or "url" field` })
+    }
+
+    // Validate URL format if present
+    if (hasUrl) {
+      try {
+        const parsed = new URL(cfg.url as string)
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          throw new Error('invalid protocol')
+        }
+      } catch {
+        throw createError({ statusCode: 400, message: `Server "${name}" has an invalid URL` })
+      }
+    }
+
+    // Validate args is array of strings if present
+    if (cfg.args !== undefined && (!Array.isArray(cfg.args) || !cfg.args.every((a: unknown) => typeof a === 'string'))) {
+      throw createError({ statusCode: 400, message: `Server "${name}" args must be an array of strings` })
+    }
+
+    // Validate env is a string-to-string object if present
+    if (cfg.env !== undefined) {
+      if (typeof cfg.env !== 'object' || cfg.env === null || Array.isArray(cfg.env)) {
+        throw createError({ statusCode: 400, message: `Server "${name}" env must be an object` })
+      }
+      for (const [k, v] of Object.entries(cfg.env as Record<string, unknown>)) {
+        if (typeof v !== 'string') {
+          throw createError({ statusCode: 400, message: `Server "${name}" env values must be strings` })
+        }
+      }
+    }
+
+    // Strip any unexpected fields — only allow known MCP config keys
+    const allowedKeys = new Set(['command', 'args', 'env', 'url', 'type', 'headers'])
+    for (const key of Object.keys(cfg)) {
+      if (!allowedKeys.has(key)) {
+        delete cfg[key]
+      }
+    }
+  }
+
   const filePath = join(homedir(), '.claude.json')
   let existingData: any = { mcpServers: {} }
 
@@ -39,7 +95,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Merge servers
+  // Merge validated servers
   for (const [name, config] of Object.entries(newServers)) {
     existingData.mcpServers[name] = config
   }
