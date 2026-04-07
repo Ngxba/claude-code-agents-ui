@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import { normalizeSDKMessage } from './messageNormalizer'
 import { resolveClaudePath } from './claudeDir'
+import { safeClaudePath } from './path-security'
 import { parseFrontmatter } from './frontmatter'
 import type { Peer } from 'crossws'
 import type { NormalizedMessage } from '~/types'
@@ -38,10 +39,11 @@ export async function queryClaudeChat(
   let hasTextMessageFromResult = false // Track if we got a text message from SDK result
 
   try {
-    // Prepare SDK options (following claudecodeui pattern)
+    // Prepare SDK options — default to 'default' permission mode for safety.
+    // Users must explicitly request bypassPermissions from the client.
     const sdkOptions: any = {
       cwd: options.workingDir || process.cwd(),
-      permissionMode: 'bypassPermissions',
+      permissionMode: 'default',
       allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],
       maxTurns: 10,
       includePartialMessages: true,
@@ -187,7 +189,7 @@ function sendMessage(ws: Peer, message: NormalizedMessage): void {
  */
 export async function loadAgentInstructions(agentSlug: string): Promise<string | null> {
   try {
-    const agentPath = resolveClaudePath('agents', `${agentSlug}.md`)
+    const agentPath = safeClaudePath('agents', `${agentSlug}.md`)
     const content = await fs.readFile(agentPath, 'utf-8')
 
     // Parse frontmatter to get body

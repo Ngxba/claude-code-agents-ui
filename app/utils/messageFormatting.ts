@@ -10,14 +10,7 @@
 export function decodeHTMLEntities(text: string): string {
   if (!text) return ''
 
-  // Use a temporary element to decode HTML entities
-  if (typeof document !== 'undefined') {
-    const textarea = document.createElement('textarea')
-    textarea.innerHTML = text
-    return textarea.value
-  }
-
-  // Server-side fallback: handle common entities manually
+  // Decode common HTML entities without using innerHTML (avoids XSS amplification)
   return text
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')

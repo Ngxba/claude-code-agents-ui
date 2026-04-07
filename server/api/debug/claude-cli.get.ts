@@ -27,9 +27,8 @@ export default defineEventHandler(() => {
 
   return {
     possiblePaths: results,
-    pathEnvironment: process.env.PATH,
-    pathSearch: pathSearch.slice(0, 5), // First 5 results
-    claudeCliPathEnv: process.env.CLAUDE_CLI_PATH || null,
+    pathSearch: pathSearch.slice(0, 5),
+    claudeCliPathConfigured: !!process.env.CLAUDE_CLI_PATH,
     recommendation: results.find(r => r.accessible)?.path || pathSearch.find(r => r.accessible)?.path || null,
   }
 })

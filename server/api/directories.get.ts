@@ -1,6 +1,13 @@
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { homedir } from 'node:os'
+import { isUnderAllowedPath } from '../utils/path-security'
+import { getClaudeDir } from '../utils/claudeDir'
+
+// Directories allowed for browsing: home dir and claude config
+function getBrowsableRoots(): string[] {
+  return [homedir(), getClaudeDir()]
+}
 
 export default defineEventHandler((event) => {
   const query = getQuery(event)
@@ -11,14 +18,20 @@ export default defineEventHandler((event) => {
   let prefix: string
 
   if (!input || input === '/') {
-    dirToList = '/'
+    // Default to home directory instead of filesystem root
+    dirToList = homedir()
     prefix = ''
   } else if (input.endsWith('/')) {
-    dirToList = input
+    dirToList = resolve(input)
     prefix = ''
   } else {
-    dirToList = dirname(input)
+    dirToList = dirname(resolve(input))
     prefix = input.slice(dirToList.length).replace(/^\//, '').toLowerCase()
+  }
+
+  // Security: restrict directory browsing to allowed roots
+  if (!isUnderAllowedPath(dirToList, getBrowsableRoots())) {
+    throw createError({ statusCode: 403, message: 'Access denied: path outside allowed directory' })
   }
 
   try {
