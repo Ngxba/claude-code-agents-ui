@@ -79,7 +79,12 @@ function computeMerged(server: NormalizedMessage[], realtime: NormalizedMessage[
   const extra = realtime.filter(m => !serverIds.has(m.id))
 
   if (extra.length === 0) return server
-  return [...server, ...extra]
+  
+  // Combine and sort by timestamp to ensure correct order
+  const merged = [...server, ...extra]
+  return merged.sort((a, b) => 
+    new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()
+  )
 }
 
 /**
@@ -250,8 +255,23 @@ export function useSessionStore() {
 
     if (existingIdx >= 0) {
       updated = [...slot.realtimeMessages]
-      // Merge properties to preserve content if update doesn't have it (like status updates)
-      updated[existingIdx] = { ...updated[existingIdx], ...msg }
+      const existing = updated[existingIdx]
+      
+      // Merge properties
+      const merged = { ...existing, ...msg }
+      
+      // Special handling for toolInput: preserve existing input if the new one is empty
+      // This prevents full tool_use messages (which often have empty toolInput initially)
+      // from overwriting the deltas we've been accumulating.
+      if (
+        existing.toolInput && 
+        Object.keys(existing.toolInput).length > 0 && 
+        (!msg.toolInput || Object.keys(msg.toolInput).length === 0)
+      ) {
+        merged.toolInput = existing.toolInput
+      }
+      
+      updated[existingIdx] = merged
     } else {
       updated = [...slot.realtimeMessages, msg]
     }
@@ -419,6 +439,37 @@ export function useSessionStore() {
         } as NormalizedMessage
         slot.realtimeMessages = [...slot.realtimeMessages]
         slot.realtimeMessages[toolUseIdx] = updatedToolUse
+        recomputeMergedIfNeeded(slot)
+        notify(sessionId)
+      }
+    }
+  }
+
+  /**
+   * Update a specific tool use message by its ID.
+   */
+  const updateToolUseById = (sessionId: string, toolId: string, toolInput: string) => {
+    const slot = getSlot(sessionId)
+    const idx = slot.realtimeMessages.findIndex(m => m.id === toolId)
+
+    if (idx >= 0) {
+      const existingToolUse = slot.realtimeMessages[idx]
+      if (existingToolUse) {
+        let parsedInput: any = existingToolUse.toolInput || {}
+        if (toolInput) {
+          try {
+            parsedInput = JSON.parse(toolInput)
+          } catch {
+            parsedInput = { _partialJson: toolInput }
+          }
+        }
+
+        const updatedToolUse = {
+          ...existingToolUse,
+          toolInput: parsedInput,
+        } as NormalizedMessage
+        slot.realtimeMessages = [...slot.realtimeMessages]
+        slot.realtimeMessages[idx] = updatedToolUse
         recomputeMergedIfNeeded(slot)
         notify(sessionId)
       }
@@ -686,6 +737,7 @@ export function useSessionStore() {
     migrateSession,
     getMessages,
     getSessionSlot,
+    updateToolUseById,
     // Chat v2: Permission management
     addPermission,
     removePermission,

@@ -37,30 +37,29 @@ const toolFileName = computed(() => {
 
   // Common patterns for file paths in tool inputs
   const input = props.message.toolInput
+  const toolName = (props.message.toolName || '').toLowerCase()
+  const isFileTool = ['read', 'write', 'edit', 'glob', 'grep', 'applypatch', 'replace', 'write_file', 'read_file', 'glob_search'].includes(toolName)
   
   // Handle partial JSON from streaming
   if (input && typeof input === 'object' && '_partialJson' in input) {
     const raw = input._partialJson as string
     // Try to extract known fields via regex if JSON is partial
-    // Support file_path, path, filePath, filename, pattern
-    const filePathMatch = raw.match(/"(?:file_path|path|filePath|filename|pattern)"\s*:\s*"([^"]*)"/)
-    if (filePathMatch) return filePathMatch[1]
+    // Support file_path, path, filePath, filename, pattern, file
+    // Lenient regex: don't require the closing quote so it works while streaming
+    const filePathMatch = raw.match(/"(?:file_path|path|filePath|filename|pattern|file)"\s*:\s*"([^"]*)"?/)
+    if (filePathMatch && filePathMatch[1]) return filePathMatch[1]
     
-    // Fallback: if the whole thing is just a string in quotes
+    // Fallback: if the whole thing is just a string in quotes AND it's a file tool
     const stringMatch = raw.match(/^\s*"([^"]*)"?\s*$/)
-    if (stringMatch) return stringMatch[1]
+    if (stringMatch && stringMatch[1] && isFileTool) return stringMatch[1]
 
     return null
   }
 
-  if (typeof input === 'string') return input
-  if (input.file_path) return input.file_path
-  if (input.path) return input.path
-  if (input.filePath) return input.filePath
-  if (input.filename) return input.filename
-  // Glob uses 'pattern' field
-  if (input.pattern) return input.pattern
-
+  if (typeof input === 'string' && isFileTool) return input
+  if (typeof input === 'object') {
+    return input.file_path || input.path || input.filePath || input.filename || input.pattern || input.file || null
+  }
   return null
 })
 

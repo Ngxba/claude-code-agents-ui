@@ -25,8 +25,11 @@ export function useStreamingBuffer() {
   // Buffer for tool input deltas
   const toolInputBuffer = ref<string[]>([])
 
-  // Accumulated tool input
-  const accumulatedToolInput = ref('')
+  // Accumulated tool inputs map: toolId -> input string
+  const toolInputsMap = ref<Map<string, string>>(new Map())
+
+  // Active tool ID being streamed
+  const activeToolId = ref<string | null>(null)
 
   // Flush timer
   let flushTimer: NodeJS.Timeout | null = null
@@ -47,7 +50,8 @@ export function useStreamingBuffer() {
     thinkingBuffer.value = []
     accumulatedThinking.value = ''
     toolInputBuffer.value = []
-    accumulatedToolInput.value = ''
+    toolInputsMap.value = new Map()
+    activeToolId.value = null
     currentSessionId.value = sessionId
     isStreaming.value = true
 
@@ -56,6 +60,17 @@ export function useStreamingBuffer() {
       clearTimeout(flushTimer)
       flushTimer = null
     }
+  }
+
+  /**
+   * Set the active tool ID for incoming deltas
+   */
+  function setActiveToolId(toolId: string) {
+    // If switching tools, flush current buffer first
+    if (activeToolId.value && activeToolId.value !== toolId) {
+      flush()
+    }
+    activeToolId.value = toolId
   }
 
   /**
@@ -169,7 +184,13 @@ export function useStreamingBuffer() {
     if (toolInputBuffer.value.length > 0) {
       const combined = toolInputBuffer.value.join('')
       toolInputBuffer.value = []
-      accumulatedToolInput.value += combined
+      
+      if (activeToolId.value) {
+        const current = toolInputsMap.value.get(activeToolId.value) || ''
+        toolInputsMap.value.set(activeToolId.value, current + combined)
+        // Trigger reactivity for watchers
+        toolInputsMap.value = new Map(toolInputsMap.value)
+      }
     }
   }
 
@@ -184,14 +205,15 @@ export function useStreamingBuffer() {
     // Capture final text
     const finalText = accumulatedText.value
     const finalThinking = accumulatedThinking.value
-    const finalToolInput = accumulatedToolInput.value
 
     // Reset state
     isStreaming.value = false
     currentSessionId.value = null
     accumulatedText.value = ''
     accumulatedThinking.value = ''
-    accumulatedToolInput.value = ''
+    toolInputBuffer.value = []
+    toolInputsMap.value = new Map()
+    activeToolId.value = null
 
     return finalText
   }
@@ -255,7 +277,8 @@ export function useStreamingBuffer() {
     thinkingBuffer.value = []
     accumulatedThinking.value = ''
     toolInputBuffer.value = []
-    accumulatedToolInput.value = ''
+    toolInputsMap.value = new Map()
+    activeToolId.value = null
     currentSessionId.value = null
     isStreaming.value = false
   }
@@ -270,11 +293,13 @@ export function useStreamingBuffer() {
     isStreaming: readonly(isStreaming),
     accumulatedText: readonly(accumulatedText),
     accumulatedThinking: readonly(accumulatedThinking),
-    accumulatedToolInput: readonly(accumulatedToolInput),
+    toolInputsMap: readonly(toolInputsMap),
+    activeToolId: readonly(activeToolId),
     currentSessionId: readonly(currentSessionId),
 
     // Actions
     startStreaming,
+    setActiveToolId,
     setSessionId,
     addDelta,
     addThinking,

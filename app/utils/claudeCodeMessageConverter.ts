@@ -195,6 +195,7 @@ export function convertClaudeCodeMessages(messages: ClaudeCodeMessage[]): Displa
                 kind: 'permission_request',
                 toolName: block.name,
                 toolInput: block.input,
+                content: (block.input as any)?.question,
                 resolvedDecision: toolResult ? 'allow' : undefined,
                 resolvedAnswer
               })

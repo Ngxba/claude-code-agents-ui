@@ -20,6 +20,19 @@ export function convertToDisplayMessages(
 ): DisplayChatMessage[] {
   const displayMessages: DisplayChatMessage[] = []
   const toolResultsMap = new Map<string, any>()
+  
+  // Track AskUserQuestion tool calls that have a corresponding permission_request
+  const askUserPermissionRequests = new Set<string>()
+  for (const msg of messages) {
+    if (msg.kind === 'permission_request') {
+      const tn = (msg.toolName || '').toLowerCase()
+      if (['askuserquestion', 'ask_user', 'askuser', 'ask_user_question', 'prompt', 'input_request'].includes(tn)) {
+        // We use a combination of toolName and a hash of the question to match
+        const question = msg.content || (msg.toolInput as any)?.question || ''
+        askUserPermissionRequests.add(`${tn}|${question}`)
+      }
+    }
+  }
 
   // First pass: collect tool results by toolId
   for (const msg of messages) {
@@ -52,6 +65,17 @@ export function convertToDisplayMessages(
     // Skip status messages (optional, could be shown)
     if (msg.kind === 'status') {
       continue
+    }
+    
+    // Hide redundant AskUserQuestion tool_use if permission_request is present
+    if (msg.kind === 'tool_use') {
+      const tn = (msg.toolName || '').toLowerCase()
+      if (['askuserquestion', 'ask_user', 'askuser', 'ask_user_question', 'prompt', 'input_request'].includes(tn)) {
+        const question = msg.content || (msg.toolInput as any)?.question || ''
+        if (askUserPermissionRequests.has(`${tn}|${question}`)) {
+          continue
+        }
+      }
     }
 
     // Convert to display message
@@ -125,7 +149,7 @@ function convertSingleMessage(
         sessionId: msg.sessionId,
         receivedAt: msg.timestamp,
         expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 min expiry
-        message: msg.content,
+        message: msg.content || msg.toolInput?.question,
       }
       return {
         ...base,
@@ -135,7 +159,7 @@ function convertSingleMessage(
         toolName: msg.toolName || 'Unknown Tool',
         toolInput: msg.toolInput,
         permissionRequest: permission,
-        content: msg.content,
+        content: msg.content || msg.toolInput?.question,
         resolvedDecision: msg.resolvedDecision,
         resolvedAnswer: msg.resolvedAnswer,
       } as DisplayChatMessage

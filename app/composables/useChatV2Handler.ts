@@ -195,13 +195,15 @@ export function useChatV2Handler() {
         break
 
       case 'tool_result':
-        // Ensure result uses the same well-known ID as tool_use so they match
+        // Ensure result uses a unique ID so it doesn't overwrite tool_use, 
+        // but link it via toolId so convertToDisplayMessages can pair them.
         if (sessionId) {
-          const toolId = message.metadata?.toolUseId || message.toolId || 'unknown'
-          const toolUseId = toolId.startsWith('__tool_') ? toolId : `__tool_${toolId}`
+          const rawToolId = message.metadata?.toolUseId || message.toolId || 'unknown'
+          const toolUseId = rawToolId.startsWith('__tool_') ? rawToolId : `__tool_${rawToolId}`
           sessionStore.appendRealtime(sessionId, {
             ...message,
-            id: toolUseId,
+            id: `result_${message.id || Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+            toolId: toolUseId,
           })
         }
         break
@@ -211,6 +213,10 @@ export function useChatV2Handler() {
         if (sessionId) {
           const toolId = message.metadata?.toolUseId || message.toolId || 'unknown'
           const toolUseId = toolId.startsWith('__tool_') ? toolId : `__tool_${toolId}`
+          
+          // Set active tool ID in streaming buffer so subsequent deltas go here
+          streamingBuffer.setActiveToolId(toolUseId)
+          
           sessionStore.appendRealtime(sessionId, {
             ...message,
             id: toolUseId,
@@ -229,13 +235,18 @@ export function useChatV2Handler() {
         break
 
       case 'permission_request':
+        // Use consistent tool ID if this is related to a tool call (like AskUserQuestion)
+        const rawToolId = message.requestId || message.id
+        const toolUseId = rawToolId.startsWith('__tool_') ? rawToolId : `__tool_${rawToolId}`
+        const unifiedMessage = { ...message, id: toolUseId }
+
         // Add to permissions
-        const permission = permissions.createFromMessage(message)
+        const permission = permissions.createFromMessage(unifiedMessage)
         permissions.addPending(permission)
         // Also add to session store
         if (sessionId) {
           sessionStore.addPermission(sessionId, permission)
-          sessionStore.appendRealtime(sessionId, message)
+          sessionStore.appendRealtime(sessionId, unifiedMessage)
         }
         break
 
@@ -494,12 +505,14 @@ export function useChatV2Handler() {
     }
   })
 
-  // Watch tool input buffer and update store (debounced via buffer's 100ms flush)
-  watch(streamingBuffer.accumulatedToolInput, (newToolInput) => {
-    if (streamingBuffer.isStreaming.value && streamingBuffer.currentSessionId.value && newToolInput) {
-      sessionStore.updateToolUse(streamingBuffer.currentSessionId.value, newToolInput)
+  // Watch tool input map and update store
+  watch(streamingBuffer.toolInputsMap, (newMap) => {
+    if (streamingBuffer.isStreaming.value && currentSessionId.value) {
+      for (const [toolId, toolInput] of newMap.entries()) {
+        sessionStore.updateToolUseById(currentSessionId.value, toolId, toolInput)
+      }
     }
-  })
+  }, { deep: true })
 
   return {
     // State
@@ -510,6 +523,8 @@ export function useChatV2Handler() {
     // Streaming state
     isStreaming: streamingBuffer.isStreaming,
     streamingText: streamingBuffer.accumulatedText,
+    activeToolId: streamingBuffer.activeToolId,
+    toolInputsMap: streamingBuffer.toolInputsMap,
 
     // Permissions
     permissions,
