@@ -450,13 +450,23 @@ const displayMessages = computed<DisplayChatMessage[]>(() => {
   if (viewMode.value === 'history') {
     const historyMessages = convertClaudeCodeMessages(claudeCodeMessages.value)
 
+    // If we have history messages and NOT continuing, just return history
+    if (historyMessages.length > 0 && !isContinuingHistory.value) {
+      return historyMessages
+    }
+
     // Always check for live messages if we have a session ID
     if (liveSessionId) {
       const liveMessages = sessionStore.getMessages(liveSessionId)
       // If we have live messages or streaming text, combine them
       if (liveMessages.length > 0 || streamingText.value) {
         const newMessages = convertToDisplayMessages(liveMessages, streamingText.value)
-        return [...historyMessages, ...newMessages]
+        
+        // Dedup by ID - history messages take priority
+        const historyIds = new Set(historyMessages.map(m => m.id))
+        const uniqueNewMessages = newMessages.filter(m => !historyIds.has(m.id))
+        
+        return [...historyMessages, ...uniqueNewMessages]
       }
     }
 
@@ -553,7 +563,7 @@ async function handleClaudeCodeSessionSelected(payload: { projectName: string; s
   isInitialScroll.value = true // Set initial scroll flag
   isLoadingHistoryWithDelay.value = true // Show spinner before any awaits to avoid blank gap
 
-  // Find and set the session in shared state to sync metadata (like model)
+  // Finding and setting the session in shared state to sync metadata (like model)
   const session = history.sessions.value.find(s => s.id === payload.sessionId)
   if (session) {
     history.selectedSession.value = session
@@ -567,6 +577,9 @@ async function handleClaudeCodeSessionSelected(payload: { projectName: string; s
       cwd: '',
     }
   }
+
+  // Clear any realtime messages for this session ID to prevent doubling with history
+  sessionStore.clearRealtime(payload.sessionId)
 
   // Update URL only if not already there (avoids redundant navigation when triggered by route watcher)
   const targetPath = `/cli/project/${encodeURIComponent(payload.projectName)}/session/${encodeURIComponent(payload.sessionId)}`
@@ -1414,14 +1427,16 @@ function handleOpenFile(filePath: string) {
                 <span v-else>{{ currentSessionSummary || 'Session' }}</span>
               </div>
               <!-- Folder Name -->
-              <div
+              <NuxtLink
                 v-if="currentProjectDisplayName || (isLoadingHistoryWithDelay && !isLoadingMore)"
-                class="text-[9px] md:text-[10px] font-mono leading-tight mt-0.5 text-ellipsis overflow-hidden whitespace-nowrap"
+                :to="urlProjectName ? `/cli/project/${encodeURIComponent(urlProjectName)}` : '/project-artifacts'"
+                class="text-[9px] md:text-[10px] font-mono leading-tight mt-0.5 text-ellipsis overflow-hidden whitespace-nowrap hover:text-accent transition-colors"
                 style="color: var(--text-tertiary);"
+                @click="urlSessionId = null; viewMode = 'live'"
               >
-                <span v-if="isLoadingHistoryWithDelay && !isLoadingMore" class="animate-pulse opacity-50">Loading project...</span>
-                <span v-else>{{ currentProjectDisplayName }}</span>
-              </div>
+                <span v-if="isLoadingHistoryWithDelay && !isLoadingMore" class="animate-pulse opacity-50">Loading session...</span>
+                <span v-else>{{ currentProjectDisplayName || 'Artifacts' }}</span>
+              </NuxtLink>
             </div>
           </template>
 
@@ -1457,15 +1472,16 @@ function handleOpenFile(filePath: string) {
               </div>
 
               <!-- Project/Folder indicator in live mode -->
-              <div
+              <NuxtLink
                 v-if="localWorkingDir"
-                class="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium min-w-0"
+                :to="urlProjectName ? `/cli/project/${encodeURIComponent(urlProjectName)}` : '/project-artifacts'"
+                class="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium min-w-0 hover-bg transition-all"
                 style="background: var(--surface-raised); color: var(--text-secondary);"
                 :title="localWorkingDir"
               >
                 <UIcon :name="currentProjectDisplayName ? 'i-lucide-folder-root' : 'i-lucide-folder'" class="size-3 shrink-0" />
                 <span class="truncate">{{ currentProjectDisplayName || localWorkingDir.split('/').filter(Boolean).pop() || localWorkingDir }}</span>
-              </div>
+              </NuxtLink>
             </div>
           </template>
         </div>

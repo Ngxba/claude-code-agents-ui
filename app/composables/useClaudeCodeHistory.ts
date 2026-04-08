@@ -19,6 +19,7 @@ interface ClaudeCodeSession {
   model?: string
   isGrouped?: boolean
   groupSize?: number
+  isActive?: boolean
 }
 
 interface ClaudeCodeMessage {

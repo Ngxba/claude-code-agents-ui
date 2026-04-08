@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useClaudeCodeHistory } from '~/composables/useClaudeCodeHistory'
+import { formatRelativeTime } from '~/utils/messageFormatting'
 
 const emit = defineEmits<{
   (e: 'sessionSelected', payload: { projectName: string; sessionId: string; sessionSummary: string; projectDisplayName: string }): void
@@ -385,7 +386,12 @@ function confirmDelete() {
         </button>
 
         <div class="flex-1 min-w-0 flex flex-col justify-center">
-          <h3 class="text-[13px] font-semibold break-words leading-tight" style="color: var(--text-primary);">
+          <h3
+            class="text-[13px] font-semibold break-words leading-tight transition-colors"
+            :class="viewMode === 'sessions' ? 'cursor-pointer hover:text-accent' : ''"
+            style="color: var(--text-primary);"
+            @click="viewMode === 'sessions' ? goBackToProjects() : null"
+          >
             {{ viewMode === 'projects' ? 'Claude Code History' : selectedProject?.displayName || 'Sessions' }}
           </h3>
           <p v-if="viewMode === 'sessions' && selectedProject" class="text-[10px] truncate leading-tight mt-0.5" style="color: var(--text-tertiary);">
@@ -645,10 +651,16 @@ function confirmDelete() {
                   <!-- Normal title display -->
                   <div
                     v-else
-                    class="text-[12px] font-medium truncate mb-1"
+                    class="text-[12px] font-medium truncate mb-1 flex items-center gap-2"
                     style="color: var(--text-primary);"
                   >
-                    {{ session.summary || 'Session' }}
+                    <div 
+                      v-if="session.isActive" 
+                      class="size-1.5 rounded-full shrink-0 animate-pulse" 
+                      style="background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);"
+                      title="Session is active"
+                    />
+                    <span class="truncate">{{ session.summary || 'Session' }}</span>
                   </div>
                   <div class="flex flex-wrap items-center gap-2 text-[10px]" style="color: var(--text-tertiary);">
                     <span>{{ session.messageCount }} messages</span>

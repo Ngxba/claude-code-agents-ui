@@ -109,7 +109,9 @@ export async function queryClaudeChat(
       // Capture session ID from SDK (for new sessions)
       if (message.session_id && !capturedSessionId) {
         capturedSessionId = message.session_id
-        activeQueries.set(capturedSessionId, queryInstance)
+        const extendedInstance = queryInstance as any as QueryInstance
+        extendedInstance.peerId = ws.id
+        activeQueries.set(capturedSessionId, extendedInstance)
 
         // Send session-created event only once for new sessions
         if (!options.sessionId && !sessionCreatedSent) {
@@ -124,7 +126,7 @@ export async function queryClaudeChat(
         }
       } else if (options.sessionId && capturedSessionId && !activeQueries.has(capturedSessionId)) {
         // Register resumed session's query instance for interrupt support
-        const extendedInstance = queryInstance as QueryInstance
+        const extendedInstance = queryInstance as any as QueryInstance
         extendedInstance.peerId = ws.id
         activeQueries.set(capturedSessionId, extendedInstance)
       }
@@ -194,6 +196,13 @@ export async function interruptQuery(sessionId: string): Promise<boolean> {
     }
   }
   return false
+}
+
+/**
+ * Check if a session has an active query
+ */
+export function isSessionActive(sessionId: string): boolean {
+  return activeQueries.has(sessionId)
 }
 
 /**

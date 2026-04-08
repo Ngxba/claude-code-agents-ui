@@ -108,7 +108,7 @@ onMounted(async () => {
   initialized.value = true
 })
 
-const navLinks = [
+const navTop = [
   { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/' },
   { label: 'Agents', icon: 'i-lucide-cpu', to: '/agents' },
   { label: 'Workflows', icon: 'i-lucide-git-branch', to: '/workflows' },
@@ -119,16 +119,21 @@ const navLinks = [
   { label: 'Output Styles', icon: 'i-lucide-palette', to: '/output-styles' },
 ]
 
-const navSecondary = [
+const navMid = [
+  { key: 'artifacts', label: 'Artifacts', icon: 'i-lucide-folder-root', to: '/project-artifacts' },
+  { key: 'cli', label: 'CLI', icon: 'i-lucide-terminal-square', to: '/cli' },
+]
+
+const navBottom = [
   { label: 'Explore', icon: 'i-lucide-compass', to: '/explore' },
   { label: 'Graph', icon: 'i-lucide-workflow', to: '/graph' },
-  { label: 'CLI', icon: 'i-lucide-terminal-square', to: '/cli' },
   { label: 'Settings', icon: 'i-lucide-settings', to: '/settings' },
 ]
 
 function isActive(to: string) {
   if (to === '/') return route.path === '/'
-  return route.path.startsWith(to)
+  // Exact match or sub-route
+  return route.path === to || route.path.startsWith(to + '/')
 }
 
 function badgeFor(to: string) {
@@ -162,22 +167,27 @@ function badgeFor(to: string) {
 
         <!-- Brand -->
         <div class="h-[56px] flex items-center gap-2.5 relative" :class="sidebarCollapsed ? 'justify-center px-2' : 'px-4'">
-          <template v-if="!sidebarCollapsed">
+          <NuxtLink to="/" class="flex items-center gap-2.5 flex-1 min-w-0 group/brand" v-if="!sidebarCollapsed">
             <div
-              class="size-7 rounded-lg flex items-center justify-center relative shrink-0"
+              class="size-7 rounded-lg flex items-center justify-center relative shrink-0 transition-transform duration-200 group-hover/brand:scale-105"
               style="background: linear-gradient(135deg, rgba(229, 169, 62, 0.18) 0%, rgba(229, 169, 62, 0.06) 100%); border: 1px solid rgba(229, 169, 62, 0.15);"
             >
               <UIcon name="i-lucide-bot" class="size-3.5" style="color: var(--accent);" />
             </div>
             <div class="flex-1 flex flex-col min-w-0">
-              <span class="text-[12px] font-semibold tracking-tight" style="color: var(--text-primary); font-family: var(--font-display);">
+              <span class="text-[12px] font-semibold tracking-tight group-hover/brand:text-accent transition-colors" style="color: var(--text-primary); font-family: var(--font-display);">
                 Agent Manager
               </span>
               <span class="text-[9px] font-mono tracking-wider uppercase" style="color: var(--text-disabled);">
                 Claude Code
               </span>
             </div>
-          </template>
+          </NuxtLink>
+          <div v-else class="size-7 rounded-lg flex items-center justify-center relative shrink-0"
+            style="background: linear-gradient(135deg, rgba(229, 169, 62, 0.18) 0%, rgba(229, 169, 62, 0.06) 100%); border: 1px solid rgba(229, 169, 62, 0.15);"
+          >
+            <UIcon name="i-lucide-bot" class="size-3.5" style="color: var(--accent);" />
+          </div>
           <!-- Collapse toggle -->
           <button
             class="hidden md:flex size-7 items-center justify-center rounded-lg transition-all duration-150 focus-ring press-scale shrink-0"
@@ -193,8 +203,9 @@ function badgeFor(to: string) {
 
         <!-- Primary Nav -->
         <nav class="flex-1 pt-1 space-y-0.5 overflow-y-auto" :class="sidebarCollapsed ? 'px-1.5' : 'px-2.5'">
+          <!-- Top Section -->
           <NuxtLink
-            v-for="link in navLinks"
+            v-for="link in navTop"
             :key="link.to"
             :to="link.to"
             class="nav-item group flex items-center rounded-lg text-[13px] transition-all duration-150 relative focus-ring"
@@ -228,15 +239,50 @@ function badgeFor(to: string) {
             </template>
           </NuxtLink>
 
-          <!-- Separator -->
+          <!-- Separator 1 -->
           <div class="my-3" :class="sidebarCollapsed ? 'mx-1' : 'mx-2'" style="border-top: 1px solid var(--border-subtle);" />
 
+          <!-- Mid Section: Projects & CLI -->
           <NuxtLink
-            v-for="link in navSecondary"
+            v-for="link in navMid"
+            :key="link.key"
+            :to="link.to"
+            class="nav-item group flex items-center rounded-lg text-[13px] transition-all duration-150 relative focus-ring"
+            :class="[
+              sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-3 py-[7px]',
+              { 'nav-item--active': isActive(link.to) }
+            ]"
+            :style="{
+              color: isActive(link.to) ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              fontWeight: isActive(link.to) ? '500' : '400',
+              background: isActive(link.to) ? 'var(--accent-muted)' : undefined,
+            }"
+            :title="sidebarCollapsed ? link.label : undefined"
+          >
+            <div
+              v-if="isActive(link.to)"
+              class="absolute left-0 top-1/2 -translate-y-1/2 w-[2.5px] h-4 rounded-r-full"
+              style="background: var(--accent); box-shadow: 0 0 10px var(--accent-glow);"
+            />
+            <UIcon :name="link.icon" class="size-[15px] shrink-0 transition-colors duration-150" :style="{ color: isActive(link.to) ? 'var(--accent)' : undefined }" />
+            <template v-if="!sidebarCollapsed">
+              <span class="flex-1" style="font-family: var(--font-sans);">{{ link.label }}</span>
+            </template>
+          </NuxtLink>
+
+          <!-- Separator 2 -->
+          <div class="my-3" :class="sidebarCollapsed ? 'mx-1' : 'mx-2'" style="border-top: 1px solid var(--border-subtle);" />
+
+          <!-- Bottom Section -->
+          <NuxtLink
+            v-for="link in navBottom"
             :key="link.to"
             :to="link.to"
             class="nav-item group flex items-center rounded-lg text-[13px] transition-all duration-150 relative focus-ring"
-            :class="sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-3 py-[7px]'"
+            :class="[
+              sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-3 py-[7px]',
+              { 'nav-item--active': isActive(link.to) }
+            ]"
             :style="{
               color: isActive(link.to) ? 'var(--text-primary)' : 'var(--text-tertiary)',
               fontWeight: isActive(link.to) ? '500' : '400',

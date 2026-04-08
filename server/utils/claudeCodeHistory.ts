@@ -9,6 +9,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 
 import { getClaudeDir } from './claudeDir'
+import { isSessionActive } from './claudeSdk'
 
 export interface ClaudeCodeProject {
   name: string
@@ -27,6 +28,7 @@ export interface ClaudeCodeSession {
   model?: string
   isGrouped?: boolean
   groupSize?: number
+  isActive?: boolean
 }
 
 export interface ClaudeCodeMessage {
@@ -528,6 +530,12 @@ export async function getClaudeCodeSessions(
 
     const total = visibleSessions.length
     const paginatedSessions = visibleSessions.slice(offset, offset + limit)
+    
+    // Add isActive status from SDK active queries
+    paginatedSessions.forEach(session => {
+      session.isActive = isSessionActive(session.id)
+    })
+    
     await applyCustomSessionNames(paginatedSessions)
     const hasMore = offset + limit < total
 
