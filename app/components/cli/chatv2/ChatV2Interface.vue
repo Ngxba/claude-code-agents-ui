@@ -1552,7 +1552,7 @@ function handleClosePreview() {
 
         <div class="flex items-center gap-2 shrink-0">
           <!-- Sidebar Toggles -->
-          <div v-if="urlProjectName || currentSessionId || urlSessionId" class="flex items-center gap-1 px-1 py-1 rounded-lg" style="background: var(--surface-raised); border: 1px solid var(--border-subtle);">
+          <div v-if="(urlProjectName || currentSessionId || urlSessionId) && !isLoadingHistoryWithDelay && !isCreatingSession" class="flex items-center gap-1 px-1 py-1 rounded-lg" style="background: var(--surface-raised); border: 1px solid var(--border-subtle);">
             <UTooltip text="Context Details" :popper="{ placement: 'top' }">
               <button 
                 class="p-1.5 rounded-md transition-all hover-bg" 
@@ -1565,8 +1565,8 @@ function handleClosePreview() {
             <UTooltip text="File Browser" :popper="{ placement: 'top' }">
               <button 
                 class="p-1.5 rounded-md transition-all hover-bg" 
-                :style="{ color: showRightSidebar && activeRightTab === 'files' ? 'var(--accent)' : 'var(--text-tertiary)' }"
-                @click="openRightTab('files')"
+                :style="{ color: showRightSidebar && activeRightTab === 'explorer' ? 'var(--accent)' : 'var(--text-tertiary)' }"
+                @click="openRightTab('explorer')"
               >
                 <UIcon name="i-lucide-folder-tree" class="size-4" />
               </button>
