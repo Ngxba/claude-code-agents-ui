@@ -69,6 +69,15 @@ async function save() {
 <template>
   <div class="p-6 space-y-4 bg-overlay">
     <h3 class="text-page-title">{{ mode === 'edit' ? 'Edit Skill' : 'New Skill' }}</h3>
+    
+    <div v-if="mode === 'edit' && initial?.filePath" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-base border border-border-subtle group transition-colors hover:border-accent/30">
+      <UIcon name="i-lucide-file-text" class="size-3.5 text-secondary group-hover:text-accent transition-colors" />
+      <div class="flex flex-col min-w-0">
+        <span class="text-[9px] font-mono text-meta uppercase tracking-wider">File Location</span>
+        <span class="text-[11px] font-mono text-text-secondary truncate select-all">{{ initial.filePath }}</span>
+      </div>
+    </div>
+
     <p class="text-[12px] leading-relaxed text-label">
       Skills are specific capabilities that can be added to agents. Define what this skill does and when it should be used.
     </p>

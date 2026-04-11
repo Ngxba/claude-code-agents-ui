@@ -159,6 +159,12 @@ useUnsavedChanges(isDirty)
           <UIcon name="i-lucide-arrow-left" class="size-4 text-label" />
         </NuxtLink>
       </template>
+      <template #subtitle>
+        <div v-if="skill?.filePath" class="flex items-center gap-1.5 text-[10px] text-meta font-mono max-w-2xl truncate">
+          <UIcon name="i-lucide-file-text" class="size-3" />
+          <span class="select-all">{{ skill.filePath }}</span>
+        </div>
+      </template>
       <template #trailing>
         <UIcon name="i-lucide-sparkles" class="size-4" style="color: var(--accent);" />
       </template>
@@ -376,17 +382,6 @@ useUnsavedChanges(isDirty)
             :agent-description="frontmatter.description"
           />
         </div>
-
-        <!-- File location (collapsed) -->
-        <details class="group">
-          <summary class="text-[10px] cursor-pointer list-none flex items-center gap-1.5 text-meta hover:text-label transition-colors">
-            <UIcon name="i-lucide-file" class="size-3" />
-            Show file location
-          </summary>
-          <div class="mt-2 font-mono text-[10px] pl-4.5 text-meta break-all select-all py-1.5 px-2 rounded bg-card border border-subtle">
-            {{ skill.filePath }}
-          </div>
-        </details>
       </div>
     </div>
 

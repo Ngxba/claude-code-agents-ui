@@ -136,6 +136,15 @@ async function save() {
     <h3 class="text-page-title">
       {{ mode === "edit" ? "Edit Agent" : "New Agent" }}
     </h3>
+
+    <div v-if="mode === 'edit' && initial?.filePath" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-base border border-border-subtle group transition-colors hover:border-accent/30 w-full">
+      <UIcon name="i-lucide-file-text" class="size-3.5 text-secondary group-hover:text-accent transition-colors" />
+      <div class="flex flex-col min-w-0">
+        <span class="text-[9px] font-mono text-meta uppercase tracking-wider">File Location</span>
+        <span class="text-[11px] font-mono text-text-secondary truncate select-all">{{ initial.filePath }}</span>
+      </div>
+    </div>
+
     <p class="text-[12px] leading-relaxed text-label">
       Agents are specialized AI assistants with custom instructions. Give yours
       a name and describe when it should be used.

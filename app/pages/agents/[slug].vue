@@ -147,19 +147,23 @@ useUnsavedChanges(isDirty)
 
 <template>
   <div class="h-full flex flex-col">
-    <!-- Top bar -->
-    <div class="shrink-0 flex items-center justify-between px-6 py-3 border-b" style="border-color: var(--border-subtle);">
-      <div class="flex items-center gap-3">
-        <NuxtLink to="/agents" class="p-1 rounded-md hover-bg" style="color: var(--text-tertiary);">
-          <UIcon name="i-lucide-arrow-left" class="size-4" />
+    <PageHeader :title="frontmatter.name || 'Agent'">
+      <template #leading>
+        <NuxtLink to="/agents" class="focus-ring rounded p-1.5 -m-1.5" aria-label="Back to agents">
+          <UIcon name="i-lucide-arrow-left" class="size-4 text-label" />
         </NuxtLink>
-        <div class="size-3 rounded-full" :style="{ background: frontmatter.color || 'var(--accent)' }" />
-        <h1 class="text-[16px] font-semibold tracking-tight" style="color: var(--text-primary); font-family: var(--font-display);">
-          {{ frontmatter.name || 'Agent' }}
-        </h1>
-        <span v-if="isDirty" class="text-[9px] font-mono px-1.5 py-px rounded-full" style="background: rgba(229, 169, 62, 0.1); color: var(--accent);">Unsaved</span>
-      </div>
-      <div class="flex items-center gap-2">
+      </template>
+      <template #subtitle>
+        <div v-if="filePath" class="flex items-center gap-1.5 text-[10px] text-meta font-mono max-w-2xl truncate">
+          <UIcon name="i-lucide-file-text" class="size-3" />
+          <span class="select-all">{{ filePath }}</span>
+        </div>
+      </template>
+      <template #trailing>
+        <div class="size-2 rounded-full" :style="{ background: frontmatter.color || 'var(--accent)' }" />
+        <span v-if="isDirty" class="text-[9px] font-mono px-1.5 py-px rounded-full bg-accent/10 text-accent">Unsaved</span>
+      </template>
+      <template #right>
         <UButton
           icon="i-lucide-message-square"
           size="sm"
@@ -196,8 +200,8 @@ useUnsavedChanges(isDirty)
           :loading="saving"
           @click="save"
         />
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Loading -->
     <div v-if="loading" class="flex-1 flex items-center justify-center">
@@ -247,22 +251,6 @@ useUnsavedChanges(isDirty)
           <TestPanel :agent-slug="slug" :agent-name="frontmatter.name" :is-draft="isDraft" />
         </div>
         <ExecutionInspector :tool-calls="toolCalls" :is-streaming="studioStreaming" />
-
-        <!-- File location (collapsed) -->
-        <div class="shrink-0 p-4 border-t" style="border-color: var(--border-subtle); background: var(--surface-base);">
-          <details class="group">
-            <summary class="text-[10px] cursor-pointer list-none flex items-center gap-1.5 text-meta hover:text-label transition-colors">
-              <UIcon name="i-lucide-file" class="size-3" />
-              Show file location
-            </summary>
-            <div v-if="filePath" class="mt-2 font-mono text-[10px] pl-4.5 text-meta break-all select-all py-1.5 px-2 rounded bg-card border border-subtle">
-              {{ filePath }}
-            </div>
-            <div v-else class="mt-2 font-mono text-[10px] pl-4.5 text-meta italic">
-              Loading path...
-            </div>
-          </details>
-        </div>
       </div>
     </div>
 
