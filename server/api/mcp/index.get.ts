@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
       if (data.mcpServers) {
         for (const [name, config] of Object.entries(data.mcpServers)) {
           const srvConfig = config as any
-          const transport = srvConfig.transport || srvConfig.type
+          const transport = srvConfig.transport || srvConfig.type || (srvConfig.command ? 'stdio' : (srvConfig.url ? 'sse' : undefined))
 
           servers.push({
             name,
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
         if (data.mcpServers) {
           for (const [name, config] of Object.entries(data.mcpServers)) {
             const srvConfig = config as any
-            const transport = srvConfig.transport || srvConfig.type
+            const transport = srvConfig.transport || srvConfig.type || (srvConfig.command ? 'stdio' : (srvConfig.url ? 'sse' : undefined))
 
             servers.push({
               name,

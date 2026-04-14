@@ -4,7 +4,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 
 export async function getMcpCapabilities(config: {
-  transport: 'stdio' | 'sse' | 'http'
+  transport?: 'stdio' | 'sse' | 'http'
   command?: string
   args?: string[]
   env?: Record<string, string>
@@ -12,7 +12,9 @@ export async function getMcpCapabilities(config: {
   headers?: Record<string, string>
 }) {
   let transport
-  if (config.transport === 'stdio') {
+  const effectiveTransport = config.transport || (config.command ? 'stdio' : (config.url ? 'sse' : undefined))
+
+  if (effectiveTransport === 'stdio') {
     if (!config.command) throw new Error('Command is required for stdio transport')
     transport = new StdioClientTransport({
       command: config.command,
@@ -20,7 +22,10 @@ export async function getMcpCapabilities(config: {
       env: { ...process.env, ...(config.env || {}), ...(config.headers || {}) } as Record<string, string>
     })
   } else {
-    if (!config.url) throw new Error(`URL is required for ${config.transport} transport`)
+    if (!effectiveTransport) {
+      throw new Error('Transport type could not be determined. Either "command" or "url" must be provided.')
+    }
+    if (!config.url) throw new Error(`URL is required for ${effectiveTransport} transport`)
     
     const configHeaders = config.headers || {}
     const transportOpts = {
@@ -41,22 +46,22 @@ export async function getMcpCapabilities(config: {
           headers.set(key, value)
         }
 
-        console.log(`[MCP Client] [${config.transport}] Fetching ${init?.method || 'GET'} ${url.toString()}`)
+        console.log(`[MCP Client] [${effectiveTransport}] Fetching ${init?.method || 'GET'} ${url.toString()}`)
         try {
           const response = await fetch(url, {
             ...init,
             headers
           })
-          console.log(`[MCP Client] [${config.transport}] Response: ${response.status} ${response.statusText}`)
+          console.log(`[MCP Client] [${effectiveTransport}] Response: ${response.status} ${response.statusText}`)
           return response
         } catch (err: any) {
-          console.error(`[MCP Client] [${config.transport}] Fetch error: ${err.message}`)
+          console.error(`[MCP Client] [${effectiveTransport}] Fetch error: ${err.message}`)
           throw err
         }
       }
     }
 
-    if (config.transport === 'http') {
+    if (effectiveTransport === 'http') {
       transport = new StreamableHTTPClientTransport(new URL(config.url), transportOpts)
     } else {
       transport = new SSEClientTransport(new URL(config.url), transportOpts)

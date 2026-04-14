@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const config = data.mcpServers[name] as any
-    const transport = config.transport || config.type
+    const transport = config.transport || config.type || (config.command ? 'stdio' : (config.url ? 'sse' : undefined))
 
     // Connect and fetch capabilities
     return await getMcpCapabilities({
